@@ -1,0 +1,353 @@
+---
+title: "FInding Beta is Hard"
+format: html
+editor: visual
+---
+
+# Setup Functions
+
+```{r}
+library(fmatrix)
+library(progress)
+
+
+Logdistance_prob <- function(fmat, centre=NULL, beta=1,diam=1){
+  ## upto proportionality constant
+  n <- dim(fmat)[1] + 1
+  
+  if(is.null(centre)){
+    centre <- kingman_m(n)
+  }
+  
+  return(-(beta/diam) * distance_Fmat(fmat, centre,dist="l2")^2)
+}
+
+
+sampleF<-function(M,beta,iter,diam, startF = NULL){
+  acceptance_rate<-0
+  n<-nrow(M)+1
+  
+  chainF<-list()
+  if (is.null(startF)){
+    current_tree<-rcoal(n)
+    chainF[[1]]<-gen_Fmat(current_tree,tol=13)
+    
+  }else{
+    chainF[[1]]<- startF
+  }
+  
+  
+
+  
+  MeanM<-matrix(0,nrow=n-1,ncol=n-1)
+  current_Encod<-my_encod(chainF[[1]])
+  f_current <- Fmat_from_myencod(current_Encod)
+  Logdist_curr<-Logdistance_prob(f_current,M,beta=beta,diam=diam)
+  MeanDist<-0
+  MeanEDist<-0
+  for (j in 1:iter){
+    proposed <- proposal_myencod(current_Encod)
+    f_proposed <- Fmat_from_myencod(proposed)
+    Logdist_prop<-Logdistance_prob(f_proposed,M,beta=beta,diam=diam)
+    prob <- exp(Logdist_prop-Logdist_curr)
+    #print(prob)
+    if (runif(1) < prob){
+      chainF[[j]] <- f_proposed
+      current_Encod<-proposed
+      f_current<-f_proposed
+      Logdist_curr<-Logdist_prop
+      acceptance_rate<-acceptance_rate+1
+    } else{
+      chainF[[j]]<-f_current
+    }
+    MeanDist<-MeanDist-Logdist_curr/beta
+    MeanEDist<-MeanEDist+exp(Logdist_curr)
+    
+    MeanM<-MeanM+chainF[[j]]
+  }
+  MeanM<-MeanM/iter
+  MeanDist<-MeanDist/iter
+  MeanEDist<-MeanEDist/iter
+  return(list(chainF=chainF,acceptance_rate=acceptance_rate/iter,MeanM=MeanM,MeanDist=MeanDist,MeanEDist=MeanEDist))
+}
+
+
+find_beta <- function(beta, CD_params, n= 25, iter = 100000, start_at_tree = FALSE){
+  
+  burn_in <- CD_params$burn_in
+  k <- CD_params$k
+  trials <- CD_params$trials
+  batch_size <- CD_params$batch_size
+  print_every <- CD_params$print_every
+  beta_star <- CD_params$beta_star
+  step0 <- CD_params$step0
+
+  
+  diam <- 1
+  sample_tree <- rcoal(n)
+  M <- gen_Fmat(sample_tree)
+  if(start_at_tree){
+    samples <-sampleF(M,beta,iter,diam, startF = M)
+  }else{
+    samples <-sampleF(M,beta,iter,diam)
+  }
+  
+  
+  chain <-samples$chainF
+  chain <- chain[500:length(chain)]
+  
+  #mean_tree <- sa_mean(chain)
+  mean_tree <- M
+  
+  iter = iter - burn_in
+  l2_dist <- rep(0, iter)
+
+  pb = progress_bar$new("[:bar] :percent", total=iter)
+  for (i in 1:iter){
+    pb$tick()
+    l2_dist[i] <- distance_Fmat(chain[[i]], mean_tree, dist = "l2")
+  
+  }
+  centre <- M
+  
+  n_data <- length(chain)
+  
+beta_star_list <- rep(0, iter)
+for (t in 1:trials) {
+  
+  idx <- sample.int(n_data, batch_size, replace = TRUE)
+  
+  s_pos_sum <- 0
+  s_neg_sum <- 0
+  acc_sum   <- 0
+  
+  for (b in 1:batch_size) {
+    
+    x0 <- chain[[ idx[b] ]]  
+    
+    d0 <- distance_Fmat(x0, centre, dist = "l2")
+    s_pos <- d0^2
+    
+    out <- sampleF(M = centre,
+                   beta = beta_star,
+                   iter = k + 1,
+                   diam = diam,
+                   startF = x0)
+    
+    xk <- out$chainF[[ k + 1 ]]
+    dk <- distance_Fmat(xk, centre, dist = "l2")
+    s_neg <- dk^2
+    
+    s_pos_sum <- s_pos_sum + s_pos
+    s_neg_sum <- s_neg_sum + s_neg
+  }
+  
+  E_pos <- s_pos_sum / batch_size
+  E_neg <- s_neg_sum / batch_size
+  g_beta <- (E_neg - E_pos) / diam
+  
+  step <- step0 #/ sqrt(t)              
+  beta_star <- beta_star + step * g_beta
+  if (beta_star < 1e-8) beta_star <- 1e-8
+  
+  beta_star_list[i] = beta_star
+  
+  if (t %% print_every == 0) {
+    cat("iter", t,
+        "beta", beta_star,
+         "\n")
+  }
+}
+  return(beta_star_list)
+  
+}
+
+```
+
+
+# $\Beta = 5$
+```{r}
+
+CD_params = c()
+CD_params$burn_in <- 500
+CD_params$k <- 10
+CD_params$trials<- 100000
+CD_params$batch_size <- 50
+CD_params$print_every <- 1000
+CD_params$step0 <- 0.1
+
+CD_params$beta_star <- 6
+beta <- 5
+
+print(paste0("Testing Beta = ", beta))
+beta_star_list <- find_beta(beta, CD_params, n= 25, iter = 100000, start_at_tree = FALSE)
+beta_star_last <- beta_star_list[-1]
+#beta_star_mean <-  mean(beta_star_list[CD_params$trials/2:CD_params$trials])
+
+```
+
+
+
+# $\Beta = 3$
+```{r}
+CD_params = c()
+CD_params$burn_in <- 500
+CD_params$k <- 10
+CD_params$trials<- 100000
+CD_params$batch_size <- 50
+CD_params$print_every <- 1000
+CD_params$step0 <- 0.1
+
+CD_params$beta_star <- 4
+beta <- 3
+
+print(paste0("Testing Beta = ", beta))
+find_beta(beta, CD_params, n= 25, iter = 100000, start_at_tree = FALSE)
+
+
+```
+
+
+
+
+# $\Beta = 2$
+```{r}
+CD_params = c()
+CD_params$burn_in <- 500
+CD_params$k <- 10
+CD_params$trials<- 100000
+CD_params$batch_size <- 50
+CD_params$print_every <- 1000
+CD_params$step0 <- 0.1
+
+CD_params$beta_star <- 1
+beta <- 2
+
+print(paste0("Testing Beta = ", beta))
+find_beta(beta, CD_params, n= 25, iter = 100000, start_at_tree = FALSE)
+
+
+```
+
+
+
+# $\Beta = 1$
+```{r}
+CD_params = c()
+CD_params$burn_in <- 500
+CD_params$k <- 10
+CD_params$trials<- 100000
+CD_params$batch_size <- 50
+CD_params$print_every <- 1000
+CD_params$step0 <- 0.05
+
+CD_params$beta_star <- 1
+beta <- 1
+
+print(paste0("Testing Beta = ", beta))
+find_beta(beta, CD_params, n= 25, iter = 100000, start_at_tree = FALSE)
+
+
+```
+
+
+
+# $\Beta = 0.9$
+```{r}
+CD_params = c()
+CD_params$burn_in <- 500
+CD_params$k <- 10
+CD_params$trials<- 100000
+CD_params$batch_size <- 50
+CD_params$print_every <- 1000
+CD_params$step0 <- 0.03
+
+CD_params$beta_star <- 1
+beta <- 0.9
+
+print(paste0("Testing Beta = ", beta))
+find_beta(beta, CD_params, n= 25, iter = 100000, start_at_tree = FALSE)
+
+
+```
+
+
+
+# $\Beta = 0.7$
+```{r}
+CD_params = c()
+CD_params$burn_in <- 500
+CD_params$k <- 10
+CD_params$trials<- 100000
+CD_params$batch_size <- 50
+CD_params$print_every <- 1000
+CD_params$step0 <- 0.03
+
+CD_params$beta_star <- 1
+beta <- 0.7
+
+print(paste0("Testing Beta = ", beta))
+find_beta(beta, CD_params, n= 25, iter = 100000, start_at_tree = FALSE)
+
+
+```
+
+
+# $\Beta = 0.5$
+```{r}
+CD_params = c()
+CD_params$burn_in <- 500
+CD_params$k <- 10
+CD_params$trials<- 100000
+CD_params$batch_size <- 50
+CD_params$print_every <- 1000
+CD_params$step0 <- 0.01
+
+CD_params$beta_star <- 1
+beta <- 0.5
+
+print(paste0("Testing Beta = ", beta))
+find_beta(beta, CD_params, n= 25, iter = 100000, start_at_tree = FALSE)
+
+
+```
+
+
+# $\Beta = 0.3$
+```{r}
+CD_params = c()
+CD_params$burn_in <- 500
+CD_params$k <- 10
+CD_params$trials<- 100000
+CD_params$batch_size <- 50
+CD_params$print_every <- 1000
+CD_params$step0 <- 0.01
+
+CD_params$beta_star <- 1
+beta <- 0.3
+
+print(paste0("Testing Beta = ", beta))
+find_beta(beta, CD_params, n= 25, iter = 100000, start_at_tree = FALSE)
+
+
+```
+
+
+# $\Beta = 0.1$
+```{r}
+CD_params = c()
+CD_params$burn_in <- 500
+CD_params$k <- 10
+CD_params$trials<- 100000
+CD_params$batch_size <- 50
+CD_params$print_every <- 1000
+CD_params$step0 <- 0.01
+
+CD_params$beta_star <- 1
+beta <- 0.1
+
+print(paste0("Testing Beta = ", beta))
+find_beta(beta, CD_params, n= 25, iter = 100000, start_at_tree = FALSE)
+
+
+```
