@@ -164,8 +164,8 @@ for (t in 1:trials) {
 
 ```
 
-
 # $\Beta = 5$
+
 ```{r}
 
 CD_params = c()
@@ -186,9 +186,8 @@ beta_star_last <- beta_star_list[-1]
 
 ```
 
-
-
 # $\Beta = 3$
+
 ```{r}
 CD_params = c()
 CD_params$burn_in <- 500
@@ -207,10 +206,8 @@ find_beta(beta, CD_params, n= 25, iter = 100000, start_at_tree = FALSE)
 
 ```
 
-
-
-
 # $\Beta = 2$
+
 ```{r}
 CD_params = c()
 CD_params$burn_in <- 500
@@ -229,9 +226,8 @@ find_beta(beta, CD_params, n= 25, iter = 100000, start_at_tree = FALSE)
 
 ```
 
-
-
 # $\Beta = 1$
+
 ```{r}
 CD_params = c()
 CD_params$burn_in <- 500
@@ -250,9 +246,8 @@ find_beta(beta, CD_params, n= 25, iter = 100000, start_at_tree = FALSE)
 
 ```
 
-
-
 # $\Beta = 0.9$
+
 ```{r}
 CD_params = c()
 CD_params$burn_in <- 500
@@ -271,9 +266,8 @@ find_beta(beta, CD_params, n= 25, iter = 100000, start_at_tree = FALSE)
 
 ```
 
-
-
 # $\Beta = 0.7$
+
 ```{r}
 CD_params = c()
 CD_params$burn_in <- 500
@@ -292,8 +286,8 @@ find_beta(beta, CD_params, n= 25, iter = 100000, start_at_tree = FALSE)
 
 ```
 
-
 # $\Beta = 0.5$
+
 ```{r}
 CD_params = c()
 CD_params$burn_in <- 500
@@ -312,8 +306,8 @@ find_beta(beta, CD_params, n= 25, iter = 100000, start_at_tree = FALSE)
 
 ```
 
-
 # $\Beta = 0.3$
+
 ```{r}
 CD_params = c()
 CD_params$burn_in <- 500
@@ -332,8 +326,8 @@ find_beta(beta, CD_params, n= 25, iter = 100000, start_at_tree = FALSE)
 
 ```
 
-
 # $\Beta = 0.1$
+
 ```{r}
 CD_params = c()
 CD_params$burn_in <- 500

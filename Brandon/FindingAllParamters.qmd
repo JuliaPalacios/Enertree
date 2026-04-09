@@ -1,0 +1,369 @@
+---
+title: "Finding Beta is Hard — All Experiments"
+format:
+  html:
+    toc: true
+    df-print: paged
+editor: visual
+execute:
+  warning: false
+  message: false
+---
+
+## Setup
+
+```{r}
+library(fmatrix)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(tibble)
+library(ggplot2)
+
+
+Logdistance_prob <- function(fmat, centre = NULL, beta = c(1, 1, 1)) {
+  n <- dim(fmat)[1] + 1
+  if (is.null(centre)) centre <- kingman_m(n)
+
+  d2 <- distance_Fmat(fmat, centre, dist = "l2")^2
+  Fnorm <- norm(fmat, "F")
+  cherries <- num_cherries(fmat)
+
+  return(-beta[1] * d2 - beta[2] * Fnorm - beta[3] * cherries)
+}
+
+sampleF <- function(M, beta, iter, startF = NULL){
+  acceptance_rate <- 0
+  n <- nrow(M) + 1
+
+  chainF <- vector("list", iter)
+
+  if (is.null(startF)) {
+    current_tree <- rcoal(n)
+    chainF[[1]]  <- gen_Fmat(current_tree, tol=13)
+  } else {
+    chainF[[1]] <- startF
+  }
+
+  current_Encod <- my_encod(chainF[[1]])
+  f_current     <- Fmat_from_myencod(current_Encod)
+  Logdist_curr  <- Logdistance_prob(f_current, M, beta=beta)
+
+  MeanM <- matrix(0, nrow=n-1, ncol=n-1)
+
+  for (j in 1:iter){
+    proposed    <- proposal_myencod(current_Encod)
+    f_proposed  <- Fmat_from_myencod(proposed)
+    Logdist_prop <- Logdistance_prob(f_proposed, M, beta=beta)
+
+    prob <- exp(Logdist_prop - Logdist_curr)
+
+    if (runif(1) < prob){
+      chainF[[j]]     <- f_proposed
+      current_Encod   <- proposed
+      f_current       <- f_proposed
+      Logdist_curr    <- Logdist_prop
+      acceptance_rate <- acceptance_rate + 1
+    } else {
+      chainF[[j]] <- f_current
+    }
+
+    MeanM <- MeanM + chainF[[j]]
+  }
+
+  MeanM <- MeanM/iter
+  list(
+    chainF = chainF,
+    acceptance_rate = acceptance_rate/iter,
+    MeanM = MeanM
+  )
+}
+
+
+find_beta <- function(beta, CD_params, n = 25, iter = 100000,
+                      start_at_tree = FALSE, use_true_mean = TRUE) {
+
+  cat("Testing beta = ", paste(beta, collapse = ", "), "\n")
+
+  burn_in     <- CD_params$burn_in
+  k           <- CD_params$k
+  trials      <- CD_params$trials
+  batch_size  <- CD_params$batch_size
+  print_every <- CD_params$print_every
+  step0       <- CD_params$step0
+
+
+  beta_star <- CD_params$beta_star
+  if (length(beta_star) != 3) stop("CD_params$beta_star must be a length-3 vector.")
+
+
+
+  sample_tree <- rcoal(n)
+  M <- gen_Fmat(sample_tree)
+
+  
+  if (start_at_tree) {
+    samples <- sampleF(M = M, beta = beta, iter = iter, startF = M)
+  } else {
+    samples <- sampleF(M = M, beta = beta, iter = iter)
+  }
+
+  chain <- samples$chainF
+  burn_in <- min(burn_in, length(chain) - 1)
+  chain <- chain[(burn_in + 1):length(chain)]
+  n_data <- length(chain)
+
+  distro_mean <- if (use_true_mean) M else samples$MeanM
+
+  # helper: sufficient stats for logprob
+  stats <- function(x, centre) {
+    d2 <- distance_Fmat(x, centre, dist = "l2")^2
+    fF <- norm(x, "F")
+    ch <- num_cherries(x)
+    c(d2 = d2, Fnorm = fF, cherries = ch)
+  }
+
+  beta_star_mat <- matrix(NA_real_, nrow = trials, ncol = 3)
+  colnames(beta_star_mat) <- c("beta1_star", "beta2_star", "beta3_star")
+
+  for (t in 1:trials) {
+    idx <- sample.int(n_data, batch_size, replace = TRUE)
+
+    s_pos <- c(d2 = 0, Fnorm = 0, cherries = 0)
+    s_neg <- c(d2 = 0, Fnorm = 0, cherries = 0)
+
+    for (b in 1:batch_size) {
+      x0 <- chain[[idx[b]]]
+
+      s_pos <- s_pos + stats(x0, distro_mean)
+
+      out <- sampleF(M = distro_mean, beta = beta_star, iter = k + 1, startF = x0)
+      xk <- out$chainF[[k + 1]]
+
+      s_neg <- s_neg + stats(xk, distro_mean)
+    }
+
+    E_pos <- s_pos / batch_size
+    E_neg <- s_neg / batch_size
+
+    # CD gradient matching your scalar convention:
+    g <- c(
+      beta1 = (E_neg["d2"] - E_pos["d2"]),
+      beta2 = (E_neg["Fnorm"] - E_pos["Fnorm"]),
+      beta3 = (E_neg["cherries"] - E_pos["cherries"])
+    )
+
+    beta_star <- beta_star + step0 * g
+    beta_star <- pmax(beta_star, 1e-8)  # keep positive
+    beta_star[2] = 0
+    beta_star_mat[t, ] <- beta_star
+
+    if (t %% print_every == 0) {
+      cat(
+        "trial", t,
+        "beta_star =", paste(format(beta_star, digits = 4), collapse = ", "),
+        "\n"
+      )
+    }
+  }
+
+  tibble::tibble(
+    beta1 = beta[1], beta2 = beta[2], beta3 = beta[3],
+    trial = 1:trials,
+    beta1_star = beta_star_mat[, 1],
+    beta2_star = beta_star_mat[, 2],
+    beta3_star = beta_star_mat[, 3]
+  )
+}
+
+
+
+summarize_run <- function(traj, tail_frac = 0.5) {
+  T <- nrow(traj)
+  start <- floor(T * (1 - tail_frac)) + 1
+
+  tibble(
+    beta1 = traj$beta1[1],
+    beta2 = traj$beta2[1],
+    beta3 = traj$beta3[1],
+    trials = T,
+
+    beta1_star_final = traj$beta1_star[T],
+    beta2_star_final = traj$beta2_star[T],
+    beta3_star_final = traj$beta3_star[T],
+
+    beta1_star_mean_tail = mean(traj$beta1_star[start:T]),
+    beta2_star_mean_tail = mean(traj$beta2_star[start:T]),
+    beta3_star_mean_tail = mean(traj$beta3_star[start:T]),
+
+    beta1_star_sd_tail = sd(traj$beta1_star[start:T]),
+    beta2_star_sd_tail = sd(traj$beta2_star[start:T]),
+    beta3_star_sd_tail = sd(traj$beta3_star[start:T])
+  )
+}
+
+```
+
+## Run all experiments (single cell)
+
+```{r}
+# ---- Define your experiment grid here ----
+exp_grid <- tibble::tribble(
+  ~beta1, ~beta2, ~beta3, ~beta_star0,        ~step0,
+
+  # ---- Sweep beta1 ----
+  0.1, 0.0, 0.0,  c(1, 0, 0), 0.01,
+  0.3, 0.0, 0.0,  c(1, 0, 0), 0.01,
+  0.7, 0.0, 0.0,  c(1, 0, 0), 0.01,
+  1.0, 0.0, 0.0,  c(1, 0, 0), 0.05,
+  1.5, 0.0, 0.0,  c(2, 0, 0), 0.07,
+  2.5, 0.0, 0.0,  c(3, 0, 0), 0.10,
+  5.0, 0.0, 0.0,  c(6, 0, 0), 0.10,
+
+
+  # ---- Sweep beta3 ----
+  0.0, 0.0, 0.1,  c(0, 0, 1), 0.01,
+  0.0, 0.0, 0.3,  c(0, 0, 1), 0.01,
+  0.0, 0.0, 0.7,  c(0, 0, 1), 0.01,
+  0.0, 0.0, 1.0,  c(0, 0, 1), 0.01,
+  0.0, 0.0, 1.5,  c(0, 0, 2), 0.07,
+  0.0, 0.0, 2.5,  c(0, 0, 3), 0.10,
+  0.0, 0.0, 5.0,  c(0, 0, 6), 0.10
+)
+
+
+
+base_params <- list(
+  burn_in = 500,
+  k = 8,
+  trials = 100000,
+  batch_size = 20,
+  print_every = 1000
+)
+
+# ---- Run everything ----
+set.seed(1)
+
+runs <- exp_grid %>%
+  dplyr::mutate(
+    # Using mapply instead of purrr::pmap
+    beta_vec = mapply(c, beta1, beta2, beta3, SIMPLIFY = FALSE),
+    CD_params = purrr::map2(
+      beta_star0, step0,
+      ~ modifyList(base_params, list(beta_star = .x, step0 = .y))
+    ),
+    t0 = Sys.time(),
+    traj = purrr::map2(
+      beta_vec, CD_params,
+      ~ find_beta(beta = .x, CD_params = .y, n = 25, iter = 100000,
+                  start_at_tree = FALSE, use_true_mean = TRUE)
+    ),
+    t1 = Sys.time(),
+    seconds = as.numeric(difftime(t1, t0, units = "secs")),
+    summary = purrr::map(traj, summarize_run)
+  )
+
+# ---- Summary table ----
+summary_tbl <- runs %>%
+  dplyr::select(beta_star0, step0, seconds, summary) %>%
+  tidyr::unnest(summary) %>%
+  relocate(beta1, beta2, beta3, .before = everything()) %>%
+  dplyr::arrange(dplyr::desc(beta1))
+
+summary_tbl
+write.csv(summary_tbl %>% select(-beta_star0), "summary_table_MultiParam.csv", row.names = FALSE)
+
+```
+
+
+```{r}
+# Pretty view
+knitr::kable(
+  summary_tbl,
+  digits = 4,
+  caption = "Beta experiments (one run per beta vector). Tail stats use the last 50% of trials."
+)
+```
+## BETA 1 + 3
+
+```{r}
+ exp_grid <- tibble::tribble(
+  ~beta1, ~beta2, ~beta3, ~beta_star0,        ~step0,
+
+  # ---- Sweep beta1 and beta3 ----
+  0.1, 0.0, 0.1,  c(1, 0, 1), 0.01,
+  0.3, 0.0, 0.3,  c(1, 0, 1), 0.01,
+  0.5, 0.0, 0.5,  c(1, 0, 1), 0.05,
+  0.7, 0.0, 0.7,  c(1, 0, 1), 0.07,
+  1.0, 0.0, 1.0,  c(2, 0, 2), 0.10,
+  2.0, 0.0, 2.0,  c(4, 0, 4), 0.10,
+  3.0, 0.0, 3.0,  c(4, 0, 5), 0.10,
+
+  # ---- Sweep beta2 ----
+  0.1, 0.0, 1,  c(1, 0, 2), 0.01,
+  0.3, 0.0, 0.7,  c(1, 0, 1), 0.01,
+  0.5, 0.0, 2,  c(1, 0, 1), 0.05,
+  0.7, 0.0, 0.3,  c(1, 0, 1), 0.07,
+  1.0, 0.0, 0.5,  c(2, 0, 1.5), 0.10,
+  2.0, 0.0, 3.0,  c(4, 0, 4), 0.10,
+  3.0, 0.0, 1.0,  c(4, 0, 3), 0.10,
+)
+
+base_params <- list(
+  burn_in = 500,
+  k = 8,
+  trials = 100000,
+  batch_size = 20,
+  print_every = 1000
+)
+
+# ---- Run everything ----
+set.seed(1)
+
+runs <- exp_grid %>%
+  dplyr::mutate(
+    # Using mapply instead of purrr::pmap
+    beta_vec = mapply(c, beta1, beta2, beta3, SIMPLIFY = FALSE),
+    CD_params = purrr::map2(
+      beta_star0, step0,
+      ~ modifyList(base_params, list(beta_star = .x, step0 = .y))
+    ),
+    t0 = Sys.time(),
+    traj = purrr::map2(
+      beta_vec, CD_params,
+      ~ find_beta(beta = .x, CD_params = .y, n = 25, iter = 100000,
+                  start_at_tree = FALSE, use_true_mean = TRUE)
+    ),
+    t1 = Sys.time(),
+    seconds = as.numeric(difftime(t1, t0, units = "secs")),
+    summary = purrr::map(traj, summarize_run)
+  )
+
+
+
+# ---- Summary table ----
+summary_tbl <- runs %>%
+  dplyr::select(beta_star0, step0, seconds, summary) %>%
+  tidyr::unnest(summary) %>%
+  relocate(beta1, beta2, beta3, .before = everything()) %>%
+  dplyr::arrange(dplyr::desc(beta1))
+
+summary_tbl
+write.csv(summary_tbl %>% select(-beta_star0), "summary_table_MultiParam_Beta1Beta3.csv", row.names = FALSE)
+
+```
+```{r}
+summary_tbl_multiparam <- read.csv("summary_table_MultiParam_Beta1Beta3.csv")
+summary_tbl_multiparam %>% select(beta1, beta3, beta1_star_mean_tail, beta3_star_mean_tail)
+
+```
+
+```{r}
+# Pretty view
+knitr::kable(
+  summary_tbl,
+  digits = 4,
+  caption = "Beta experiments (one run per beta vector). Tail stats use the last 50% of trials."
+)
+```
+

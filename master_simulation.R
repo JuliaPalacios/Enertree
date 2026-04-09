@@ -1,12 +1,12 @@
-setwd("~/My Drive/Statistics/Phylo-VB/")
-setwd("~/Documents/Phylo-VB/Phylo-VB")
+#setwd("~/My Drive/Statistics/Phylo-VB/")
+#setwd("~/Documents/Phylo-VB/Phylo-VB")
 
 
 library("phylodyn")
 library("ape")
 library("phyclust",quiet=TRUE)
 library("phylotools")
-library("phytools")
+#library("phytools")
 
 source("estimate_coal_utils.R")
 source("./estimate_topology_utils.R")
@@ -62,8 +62,8 @@ infer_coal_times(data_filename, tree_filename,output_prefix)
 
 ##For Julia:
 #build_command <- paste0("/Users/juliapr/opt/anaconda3/bin/phylostan build -s ",
-                        output_prefix,
-                        ".stan -m JC69 -C 4 --clock strict --coalescent skyride --compile")
+                        #output_prefix,
+                        #".stan -m JC69 -C 4 --clock strict --coalescent skyride --compile")
 #system(build_command)
 # run_command <- paste0("/Users/juliapr/opt/anaconda3/bin/phylostan run -s ",
 #                       output_prefix,

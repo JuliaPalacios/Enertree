@@ -1,0 +1,375 @@
+---
+title: "Finding Beta is Hard — All Experiments"
+format:
+  html:
+    toc: true
+    df-print: paged
+editor: visual
+execute:
+  warning: false
+  message: false
+---
+
+## Setup
+
+```{r}
+library(fmatrix)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(tibble)
+library(ggplot2)
+library(progress)
+
+Logdistance_prob <- function(fmat, centre=NULL, beta=1, diam=1, N=25){
+  n <- dim(fmat)[1] + 1
+  if (is.null(centre)) centre <- kingman_m(n)
+  -(beta/diam) * distance_Fmat(fmat, centre, dist="l2")^2/N^4
+}
+
+sampleF <- function(M, beta, iter, diam, startF = NULL, take_every = 1){
+  acceptance_rate <- 0
+  n <- nrow(M) + 1
+
+  chainF <- vector("list", iter/take_every)
+
+  if (is.null(startF)) {
+    current_tree <- rcoal(n)
+    chainF[[1]]  <- gen_Fmat(current_tree, tol=13)
+  } else {
+    chainF[[1]] <- startF
+  }
+
+  current_Encod <- my_encod(chainF[[1]])
+  f_current     <- Fmat_from_myencod(current_Encod)
+  Logdist_curr  <- Logdistance_prob(f_current, M, beta=beta, diam=diam)
+
+  MeanM <- matrix(0, nrow=n-1, ncol=n-1)
+  
+  
+  for (j in 1:iter){
+    
+    proposed    <- proposal_myencod(current_Encod)
+    f_proposed  <- Fmat_from_myencod(proposed)
+    Logdist_prop <- Logdistance_prob(f_proposed, M, beta=beta, diam=diam)
+
+    prob <- exp(Logdist_prop - Logdist_curr)
+
+    if (runif(1) < prob){
+      if(j%%take_every == 0){
+        chainF[[j/take_every]] <- f_proposed
+      }
+      
+      current_Encod   <- proposed
+      f_current       <- f_proposed
+      Logdist_curr    <- Logdist_prop
+      acceptance_rate <- acceptance_rate + 1
+    } else {
+      if(j%%take_every == 0){
+        chainF[[j/take_every]] <- f_proposed
+      }
+    }
+    if(j%%take_every == 0){
+       MeanM <- MeanM + chainF[[j/take_every]]
+      }
+    
+  }
+
+  MeanM <- MeanM/iter
+  list(
+    chainF = chainF,
+    acceptance_rate = acceptance_rate/iter,
+    MeanM = MeanM
+  )
+}
+
+
+find_beta_data <- function(chain_data, CD_params,return_samples = FALSE){
+  
+  
+  burn_in     <- CD_params$burn_in
+  k           <- CD_params$k
+  trials      <- CD_params$trials
+  batch_size  <- CD_params$batch_size
+  print_every <- CD_params$print_every
+  step0       <- CD_params$step0
+  beta_star   <- CD_params$beta_star
+
+
+  diam <- 1
+
+  
+
+  samples <- chain_data
+  chain <- chain_data
+  
+  burn_in <- min(burn_in, length(chain) - 1)
+  chain <- chain[(burn_in+1):length(chain)]
+  n_data <- length(chain)
+  
+  
+  arr <- simplify2array(chain)
+  distro_mean <- apply(arr, c(1, 2), mean)
+  
+    
+
+  beta_star_list <- numeric(trials)
+  
+  for (t in 1:trials){
+    idx <- sample.int(n_data, batch_size, replace = TRUE)
+
+    s_pos_sum <- 0
+    s_neg_sum <- 0
+
+    for (b in 1:batch_size){
+      x0 <- chain[[ idx[b] ]]
+
+      d0 <- distance_Fmat(x0, distro_mean, dist = "l2")
+      s_pos_sum <- s_pos_sum + d0^2
+
+      out <- sampleF(M = distro_mean, beta = beta_star, iter = k + 1, diam = diam, startF = x0)
+      xk <- out$chainF[[ k + 1 ]]
+
+      dk <- distance_Fmat(xk, distro_mean, dist = "l2")
+      s_neg_sum <- s_neg_sum + dk^2
+    }
+
+    E_pos <- s_pos_sum / batch_size
+    E_neg <- s_neg_sum / batch_size
+    g_beta <- (E_neg - E_pos) / diam
+
+    step <- step0
+    beta_star <- beta_star + step * g_beta
+    if (beta_star < 1e-12) beta_star <- 1e-12
+
+    beta_star_list[t] <- beta_star
+
+    if (t %% print_every == 0){
+      cat("trial", t, "beta_star", beta_star, "\n")
+    }
+  }
+
+  out_tbl <- tibble(
+    trial = 1:trials,
+    beta_star = beta_star_list
+  )
+
+  if (return_samples) {
+    return(list(
+      out_tbl    = out_tbl,
+      samples = samples,
+      chain   = chain
+    ))
+  }
+
+  out_tbl
+  
+}
+
+summarize_run <- function(traj, tail_frac = 0.5){
+  # summarize a single trajectory tibble from find_beta()
+  T <- nrow(traj)
+  start <- floor(T*(1-tail_frac)) + 1
+  tibble(
+    trials = T,
+    beta_star_final = traj$beta_star[T],
+    beta_star_mean_tail = mean(traj$beta_star[start:T]),
+    beta_star_sd_tail = sd(traj$beta_star[start:T])
+  )
+}
+
+
+
+
+```
+
+```{r}
+library(phyclust)
+set.seed(42)
+n= 25 
+# Generate the tree
+tree <- rcoal(n)
+
+# Set the length of the DNA sequence for each tip (e.g., 1000 bases)
+seq_length <- 100  # For example, 1000 base pairs
+
+# Convert tree to Newick format (if necessary)
+newick_tree <- write.tree(tree)
+
+# Specify options for seqgen, including sequence length (-l) and model (-m)
+opts <- paste("-mHKY -l", seq_length)#"-s0.2" 
+
+# Generate DNA sequences for the tree using seqgen
+sequences <- seqgen(opts = opts, rooted.tree = tree, temp.file	="output_sequences.fasta")
+
+
+```
+
+```{r}
+library(progress)
+trees <- read.nexus("HKY100_small-output_sequences_saved.trees")
+N <- 10000
+F.list <- vector("list", N)
+pb = progress_bar$new("[:bar] :percent", total=N)
+for (i in 1:N){
+  name <- names(trees)[i]
+  pb$tick()
+  F.list[[i]] <- gen_Fmat(trees[[name]])  # Assuming 'trees' is a list or data frame
+}
+```
+
+# N = 10
+
+## Run all experiments (TRUE MEAN)
+
+### iter = 100000
+
+```{r}
+CD_params = c()
+CD_params$burn_in <- 2000
+CD_params$k <- 10
+CD_params$trials<- 150000
+CD_params$batch_size <- 50
+CD_params$print_every <- 1000
+CD_params$step0 <- 10
+
+CD_params$beta_star <- 75000
+
+time_taken <- system.time({
+ res<- find_beta_data(F.list, CD_params,return_samples = TRUE)
+})
+#summarize_run(traj)
+
+```
+
+
+
+
+```{r}
+
+sub_samp = 1000
+iter = 10000000
+diam = 1
+n = 25
+res_table = summarize_run(res$out_tbl, tail_frac = 0.5)
+beta_star = res_table$beta_star_mean_tail
+beta_star = 81000
+print(beta_star)
+
+chain_data = res$chain
+burn_in <- CD_params$burn_in
+arr <- simplify2array(chain_data)
+distro_mean <- apply(arr, c(1, 2), mean)
+
+
+
+
+#distance_Fmat(TrueM, TrueM, dist="l2")^2 
+rand_tree = chain_data[[sample(length(chain_data), 1)]]
+
+time_taken <- system.time({
+  samples_gen <-sampleF(distro_mean,beta_star,iter,diam, startF = rand_tree, take_every = 1000)
+})
+
+# Print the time it took
+print(time_taken)
+
+chain_gen <-samples_gen$chainF
+burn_in <- min(burn_in, length(chain_gen) - 1)
+chain_gen <- chain_gen[(burn_in+1):length(chain_gen)]
+
+
+set.seed(42)             
+idx <- sample(length(chain_data), sub_samp)
+trees_data <- chain_data[idx]
+
+idx <- sample(length(chain_gen), sub_samp)
+trees_gen <- chain_gen[idx]
+
+idx <- sample(length(chain_data), sub_samp)
+trees_data2 <- chain_data[idx]
+
+```
+
+
+```{r}
+library(progress)
+# 1) Combine trees (ordering matters)
+trees_all <- c(trees_data, trees_gen)
+n <- length(trees_all)  # should be 2000
+
+# 2) Compute full symmetric distance matrix (compute only i<j pairs once)
+D <- matrix(0, n, n)
+
+pb <- progress_bar$new(
+  format = "  computing distances [:bar] :percent eta: :eta",
+  total = n - 1,
+  clear = FALSE,
+  width = 60
+)
+
+for (i in 2:n) {
+  ti <- trees_all[[i]]
+  for (j in 1:(i - 1)) {
+    d <- distance_Fmat(ti, trees_all[[j]], dist="l2")^2 
+    D[i, j] <- d
+    D[j, i] <- d
+  }
+  pb$tick()
+}
+
+# 3) Convert to 'dist' and run MDS
+D_dist <- as.dist(D)
+mds <- cmdscale(D_dist, k = 2, eig = TRUE)
+
+coords <- as.data.frame(mds$points)
+colnames(coords) <- c("Dim1", "Dim2")
+
+# 4) Add group labels (first 1000 are A, next 1000 are B)
+coords$group <- rep(c("Data", "Generated"), each = sub_samp)
+
+# 5) Plot
+plot(
+  coords$Dim1, coords$Dim2,
+  col = ifelse(coords$group == "Data", "steelblue", "tomato"),
+  pch = 16,
+  xlab = "MDS 1", ylab = "MDS 2",
+  main = "MDS of Tree Distances"
+)
+legend("topright", legend = c("Data", "Generated"),
+       col = c("steelblue", "tomato"), pch = 16, bty = "n")
+
+# 6) (Optional) How much of the distance structure is captured in 2D?
+pos_eig <- mds$eig[mds$eig > 0]
+prop_2d <- sum(pos_eig[1:2]) / sum(pos_eig)
+prop_2d
+
+```
+
+```{r}
+
+
+distances_data <- rep(0, N-burn_in)
+for (i in 1:length(distances_data)){
+  distances_data[i] <- distance_Fmat(chain_data[[i]], distro_mean, dist = "l2")^2
+}
+
+distances_gen <- rep(0, N-burn_in)
+for (i in 1:length(distances_data)){
+  distances_gen[i] <- distance_Fmat(chain_gen[[i]], distro_mean, dist = "l2")^2
+}
+
+hist(distances_data, main = "Comparison of Squared L2 Distances", 
+     xlab = "Squared L2 Distance", col = rgb(0, 0, 1, 0.5), border = "black")
+
+# Overlay the second histogram (distances_gen)
+hist(distances_gen, col = rgb(1, 0, 0, 0.5), border = "black", add = TRUE)
+
+# Add a legend to differentiate the histograms
+legend("topright", legend = c("distances_data", "distances_gen"), 
+       fill = c(rgb(0, 0, 1, 0.5), rgb(1, 0, 0, 0.5)))
+```
+
+
+
+
