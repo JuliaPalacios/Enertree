@@ -1,4 +1,5 @@
 ---
+ree---
 title: "Finding Beta is Hard — All Experiments"
 format:
   html:
@@ -275,7 +276,6 @@ write.csv(summary_tbl %>% select(-beta_star0), "summary_table_MultiParam.csv", r
 
 ```
 
-
 ```{r}
 # Pretty view
 knitr::kable(
@@ -284,6 +284,7 @@ knitr::kable(
   caption = "Beta experiments (one run per beta vector). Tail stats use the last 50% of trials."
 )
 ```
+
 ## BETA 1 + 3
 
 ```{r}
@@ -352,6 +353,7 @@ summary_tbl
 write.csv(summary_tbl %>% select(-beta_star0), "summary_table_MultiParam_Beta1Beta3.csv", row.names = FALSE)
 
 ```
+
 ```{r}
 summary_tbl_multiparam <- read.csv("summary_table_MultiParam_Beta1Beta3.csv")
 summary_tbl_multiparam %>% select(beta1, beta3, beta1_star_mean_tail, beta3_star_mean_tail)
@@ -366,4 +368,3 @@ knitr::kable(
   caption = "Beta experiments (one run per beta vector). Tail stats use the last 50% of trials."
 )
 ```
-

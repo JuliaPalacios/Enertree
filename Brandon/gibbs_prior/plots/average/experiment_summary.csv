@@ -1,0 +1,7 @@
+"experiment","lambda","beta_mean","beta_sd","acceptance_rate_beta","acceptance_rate_M","average_M_distance_to_true"
+"upgma_max",1,0.1,0,1,1,30.7408522978788
+"true_init",1,0.1,0,1,1,13.856406460551
+"mle_init",1,0.1,0,1,1,16.8819430161341
+"upgma_temp_max",100,0.1,0,1,1,29.9332590941915
+"upgma_temp1000_max",1000,0.1,0,1,1,29.9332590941915
+"beast",NA,NA,NA,NA,NA,17.1464281994822

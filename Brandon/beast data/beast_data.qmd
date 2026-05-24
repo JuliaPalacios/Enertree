@@ -242,9 +242,6 @@ time_taken <- system.time({
 
 ```
 
-
-
-
 ```{r}
 
 sub_samp = 1000
@@ -290,7 +287,6 @@ idx <- sample(length(chain_data), sub_samp)
 trees_data2 <- chain_data[idx]
 
 ```
-
 
 ```{r}
 library(progress)
@@ -369,7 +365,3 @@ hist(distances_gen, col = rgb(1, 0, 0, 0.5), border = "black", add = TRUE)
 legend("topright", legend = c("distances_data", "distances_gen"), 
        fill = c(rgb(0, 0, 1, 0.5), rgb(1, 0, 0, 0.5)))
 ```
-
-
-
-

@@ -1,0 +1,8 @@
+"experiment","lambda","beta_mean","beta_sd","acceptance_rate_beta","acceptance_rate_M","average_M_distance_to_true","sampler_type","init_type","include_log_Z"
+"joint_upgma_logZ_true",1,0.0231489580796984,0.0318413678179653,0.502350235023502,0.544854485448545,19.4164878389476,"joint","upgma",TRUE
+"joint_upgma_logZ_false",1,0.0250089786089107,0.0356009899797819,0.43964396439644,0.461746174617462,18.6279360101972,"joint","upgma",FALSE
+"joint_true_init_logZ_true",1,0.0234714587123956,0.0319833681964397,0.494349434943494,0.546354635463546,21.095023109729,"joint","true_init",TRUE
+"joint_true_init_logZ_false",1,0.0469294623160743,0.182603323269658,0.424542454245425,0.443744374437444,18.4932420089069,"joint","true_init",FALSE
+"mean_upgma_logZ_false",1,0.0352738015926419,0.0190303610024564,0.418594185941859,1,25.1793566240283,"mean","upgma",FALSE
+"mean_true_init_logZ_false",1,0.030284109516799,0.0158416076802191,0.413941394139414,1,19.0525588832576,"mean","true_init",FALSE
+"beast",NA,NA,NA,NA,NA,17.1464281994822,"beast_reference","beast",NA

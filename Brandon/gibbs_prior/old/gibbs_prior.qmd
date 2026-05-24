@@ -1,0 +1,491 @@
+---
+title: "Gibbs Prior"
+format: html
+editor: visual
+---
+
+```{r}
+setwd("/Users/brandonmarks/Desktop/Research/Palacios Lab/Untitled/Enertree/Brandon/gibbs_prior")
+library("ape")
+library("phylodyn")
+library(phangorn)
+library(phyclust)
+library(phylotools)
+library(fmatrix)
+library(phangorn)
+source("utils.R")
+```
+
+```{r}
+log_posterior <- function(beta, M, coal_times, prior_sd, lambda = 1, start_tree = NULL, mode = "average", sample_from_M = FALSE) {
+  # Placeholder for the actual log-posterior calculation
+  # This should include the likelihood and the prior
+  if (sample_from_M) {
+    tree_fmat <- sampleF(M, beta, iter=10000, diam=1, startF = M, take_every = 100)$chainF[[100]]
+  }else {
+    tree_fmat <- sampleF(M, beta, iter=2, diam=1, startF = start_tree, take_every = 1)$chainF[[2]]
+  }
+  
+  log_botlzman_dist <- Logdistance_prob(tree_fmat, M, beta=beta, diam=1)
+  if(mode == "average"){
+  log_likelihood <- 0}else if(mode == "max"){
+    log_likelihood <- -Inf
+  }else {
+    stop("Invalid mode. Choose 'average' or 'max'.")
+  }
+  R = 10
+  for (i in 1:R){
+    rooted_tree <- mytree_from_F(tree_fmat, coal_times)
+    if (mode == "average"){
+       log_likelihood <- log_likelihood + pml(rooted_tree, sequences)$log
+    }else if (mode == "max"){
+      log_likelihood <- max(log_likelihood, pml(rooted_tree, sequences)$log)
+    }else {
+      stop("Invalid mode. Choose 'average' or 'max'.")
+    }
+  }
+  if (mode == "average"){
+    log_likelihood <- log_likelihood/R
+  }
+  
+  n_tips <- ncol(M_true_fmat) + 1
+  log_rooted_given_unrooted <- log(2^(num_cherries(tree_fmat))/factorial(n_tips))
+  log_prior <- dnorm(log(beta), mean = 0, sd = prior_sd, log = TRUE)
+  log_posterior <- log_likelihood/lambda + log_rooted_given_unrooted +  log_botlzman_dist + log_prior
+  
+
+ return(list(log_posterior = log_posterior, tree_fmat = tree_fmat))
+ 
+}
+```
+
+```{r}
+run_mh_beta <- function(
+  M_hat,
+  beta_init,
+  prior_sd,
+  n_iter,
+  coal_times,
+  proposal_sd,
+  lambda = 1,
+  mode = "average",
+  include_tree = FALSE,
+  sample_from_M = FALSE,
+  take_every = 1000
+) {
+
+  
+
+  beta_chain <- numeric(n_iter)
+  log_post_chain <- numeric(n_iter)
+
+  tree_chain <- vector("list", n_iter/take_every)
+ 
+  accepted <- 0
+
+  current_beta <- beta_init
+  current_g = log(current_beta)
+  proposed_tree = gen_Fmat(rcoal(nrow(M_hat) + 1 ))
+  res <- log_posterior(current_beta, M_hat, coal_times, prior_sd, lambda = lambda, start_tree = proposed_tree, mode = mode, sample_from_M = sample_from_M)
+
+  current_log_post <- res$log_posterior
+  current_tree <- res$tree_fmat
+ 
+
+  beta_chain[1] <- current_beta
+  log_post_chain[1] <- current_log_post
+
+  for (iter in 2:n_iter) {
+    proposed_g <- rnorm(1, mean = current_g, sd = proposal_sd)
+    proposed_beta <- exp(proposed_g)
+
+    res_prop <- log_posterior(proposed_beta, M_hat, coal_times, prior_sd, lambda = lambda, start_tree = proposed_tree, mode = mode, sample_from_M = sample_from_M)
+    proposed_log_post <- res_prop$log_posterior
+    proposed_tree <- res_prop$tree_fmat
+    
+
+    log_accept_ratio <- proposed_log_post - current_log_post
+
+    if (log(runif(1)) < log_accept_ratio) {
+      current_beta <- proposed_beta
+      current_g <- proposed_g
+      current_log_post <- proposed_log_post
+     
+      current_tree <- proposed_tree
+
+      accepted <- accepted + 1
+    }
+
+    beta_chain[iter] <- current_beta
+    log_post_chain[iter] <- current_log_post
+    
+    if (include_tree && iter %% take_every == 0) {
+        tree_chain[[iter / take_every]] <- current_tree
+    }
+
+    per10 <- floor(n_iter / 10)
+    if (iter %% per10 == 0) {
+      cat("Iteration:", iter, "Current Beta:", current_beta, "Log Posterior:", current_log_post, "\n")
+    }
+  
+  }
+
+  if (include_tree) {
+    return(list(
+      beta_chain = beta_chain,
+      log_posterior = log_post_chain,
+      tree_chain = tree_chain,
+      acceptance_rate = accepted / (n_iter - 1)
+    ))
+  } else {
+    return(list(
+      beta_chain = beta_chain,
+      log_posterior = log_post_chain,
+      acceptance_rate = accepted / (n_iter - 1)
+    ))
+  }
+}
+```
+
+```{r}
+n_tips = 25
+set.seed(123)
+#list <- generate_true_M_and_data(n_tips)
+sequences <- as.phyDat(read.FASTA("sequences.fasta"))
+
+M_true_tree <- read.tree("true_tree.newick")
+inter_coal_times <- coalescent.intervals(M_true_tree)$interval.length
+inter_coal_times[which(inter_coal_times<=0.000001)] <- 0.0000001
+true_coalescent_times <- cumsum(inter_coal_times)
+M_true_fmat <- gen_Fmat(M_true_tree, tol=8)
+#sequences <- as.phyDat(list$sequences)
+
+
+```
+
+```{r}
+dm <- dist.hamming(sequences)
+upgma_tree <- upgma(dm)
+upgma_tree <- update_time(upgma_tree, true_coalescent_times)
+M_upgma_fmat <- gen_Fmat(upgma_tree, tol=8)
+
+upgma_fmat_error <- distance_Fmat(M_true_fmat, M_upgma_fmat)
+print(upgma_fmat_error)
+```
+
+```{r}
+
+# Step 2: Compute a fully bifurcating starting tree (Neighbor-Joining)
+dm <- dist.hamming(sequences)
+start_tree <- nj(dm)  # fully bifurcating by construction
+start_tree <- midpoint(start_tree)
+start_tree <- multi2di(start_tree, random = FALSE)  # ensure rooted + bifurcating
+
+
+# Step 3: Fit initial likelihood
+fit <- pml(start_tree, data = sequences)
+
+# Step 4: Optimize tree with MLE under strict clock
+# The "optClock = TRUE" argument enforces ultrametric (strict clock)
+fit <- optim.pml(fit, model = "JC", rearrangement = "stochastic", optClock = TRUE)
+
+# Step 5: Extract the MLE tree
+mle_tree <- fit$tree
+
+# Step 6: Root and retime the tree so gen_Fmat() sees a rooted binary tree
+mle_tree <- midpoint(mle_tree)
+mle_tree <- multi2di(mle_tree, random = FALSE)
+mle_tree <- update_time(mle_tree, true_coalescent_times)
+min_branch <- 1e-8
+mle_tree$edge.length[mle_tree$edge.length < min_branch] <- min_branch
+print(is.rooted(mle_tree))
+print(is.ultrametric(mle_tree))
+
+# Generate the F-matrix
+M_mle_fmat <- gen_Fmat(mle_tree, tol = 8)
+
+# Compute error
+mle_fmat_error <- distance_Fmat(M_true_fmat, M_mle_fmat)
+print(mle_fmat_error)
+
+
+```
+
+## COMPARE TO BEAST DATA (TRUE)
+
+```{r}
+res_max_M <- run_mh_beta(M_hat = M_true_fmat,
+            beta_init = 1,
+            prior_sd = 1,
+            lambda = 1,
+            n_iter = 10000,
+            coal_times = true_coalescent_times,
+            proposal_sd = 0.5,
+            include_tree = TRUE,
+            mode = "max",
+            sample_from_M = FALSE,
+            take_every = 1
+
+)
+
+beta_chain_max_M <- res_max_M$beta_chain
+hist(beta_chain_max_M, breaks = 30, main = "Posterior of Beta (Max Mode, Sample from M)", xlab = "Beta")
+```
+
+```{r}
+res_average_M <- run_mh_beta(M_hat = M_true_fmat,
+            beta_init = 1,
+            prior_sd = 1,
+            lambda = 1,
+            n_iter = 10000,
+            coal_times = true_coalescent_times,
+            proposal_sd = 0.5,
+         
+            include_tree = TRUE,
+            mode = "average",
+            sample_from_M = FALSE,
+            take_every = 1
+
+)
+
+beta_chain_average_M <- res_average_M$beta_chain
+hist(beta_chain_average_M, breaks = 30, main = "Posterior of Beta (Average Mode, Sample from M)", xlab = "Beta")
+```
+
+```{r}
+library(progress)
+trees_beast <- read.nexus("HKY1000Gibbs-sequences.trees")
+N <- 10000
+F.list <- vector("list", N)
+pb = progress_bar$new("[:bar] :percent", total=N)
+for (i in 1:N){
+  name <- names(trees_beast)[i]
+  pb$tick()
+  F.list[[i]] <- gen_Fmat(trees_beast[[name]], tol = 8)
+  
+}
+```
+
+```{r}
+burn_in <- 50
+sub_samp <- 1000
+chain_gen <- res_max_M$tree_chain
+chain_gen2 <- res_average_M$tree_chain
+
+burn_in <- min(burn_in, length(chain_gen) - 1)
+chain_gen <- chain_gen[(burn_in+1):length(chain_gen)]
+chain_gen2 <- chain_gen2[(burn_in+1):length(chain_gen2)]
+
+
+set.seed(42)
+chain_data <- F.list
+idx <- sample(length(chain_data), sub_samp)
+trees_data <- chain_data[idx]
+
+idx <- sample(length(chain_gen), sub_samp)
+trees_gen <- chain_gen[idx]
+
+idx <- sample(length(chain_gen2), sub_samp)
+trees_gen2 <- chain_gen2[idx]
+```
+
+```{r}
+tree_MDS_comparison_plot(trees_gen, trees_data, M_true_fmat, title = "MDS Comparison (MAX MODE)", save_path = "MDS_comparison_max_mode.png")
+```
+
+```{r}
+tree_histogram_comparison_plot(chain_gen, chain_data, M_true_fmat, title = "Histogram Comparison (MAX MODE)", save_path = "Histogram_comparison_max_mode.png")
+```
+
+```{r}
+tree_MDS_comparison_plot(trees_gen2, trees_data, M_true_fmat, title = "MDS Comparison (AVERAGE MODE)", save_path = "MDS_comparison_average_mode.png")
+```
+
+```{r}
+tree_histogram_comparison_plot(chain_gen2, chain_data, M_true_fmat, title = "Histogram Comparison (AVERAGE MODE)", save_path = "Histogram_comparison_average_mode.png")
+```
+
+## COMPARE TO BEAST DATA (UPGMA TREE)
+
+```{r}
+res_max_UPGMA <- run_mh_beta(M_hat = M_upgma_fmat,
+            beta_init = 1,
+            prior_sd = 1,
+            lambda = 1,
+            n_iter = 10000,
+            coal_times = true_coalescent_times,
+            proposal_sd = 0.5,
+            include_tree = TRUE,
+            mode = "max",
+            sample_from_M = FALSE,
+            take_every = 1
+
+)
+
+beta_chain_max_UPGMA <- res_max_UPGMA$beta_chain
+hist(beta_chain_max_UPGMA, breaks = 30, main = "Posterior of Beta (Max Mode, Sample from UPGMA)", xlab = "Beta")
+```
+
+```{r}
+res_average_UPGMA <- run_mh_beta(M_hat = M_upgma_fmat,
+            beta_init = 1,
+            prior_sd = 1,
+            lambda = 1,
+            n_iter = 10000,
+            coal_times = true_coalescent_times,
+            proposal_sd = 0.5,
+            include_tree = TRUE,
+            mode = "average",
+            sample_from_M = FALSE,
+            take_every = 1
+
+)
+
+beta_chain_average_UPGMA <- res_average_UPGMA$beta_chain
+hist(beta_chain_average_UPGMA, breaks = 30, main = "Posterior of Beta (Average Mode, Sample from UPGMA)", xlab = "Beta")
+```
+
+```{r}
+library(progress)
+trees_beast <- read.nexus("HKY1000Gibbs-sequences.trees")
+N <- 10000
+F.list <- vector("list", N)
+pb = progress_bar$new("[:bar] :percent", total=N)
+for (i in 1:N){
+  name <- names(trees_beast)[i]
+  pb$tick()
+  F.list[[i]] <- gen_Fmat(trees_beast[[name]], tol = 8)
+  
+}
+```
+
+```{r}
+burn_in <- 50
+sub_samp <- 1000
+chain_gen <- res_max_UPGMA$tree_chain
+chain_gen2 <- res_average_UPGMA$tree_chain
+
+burn_in <- min(burn_in, length(chain_gen) - 1)
+chain_gen <- chain_gen[(burn_in+1):length(chain_gen)]
+chain_gen2 <- chain_gen2[(burn_in+1):length(chain_gen2)]
+
+
+set.seed(42)
+chain_data <- F.list
+idx <- sample(length(chain_data), sub_samp)
+trees_data <- chain_data[idx]
+
+idx <- sample(length(chain_gen), sub_samp)
+trees_gen <- chain_gen[idx]
+
+idx <- sample(length(chain_gen2), sub_samp)
+trees_gen2 <- chain_gen2[idx]
+```
+
+```{r}
+tree_MDS_comparison_plot(trees_gen, trees_data, M_true_fmat, M_tree = M_upgma_fmat, title = "UPGMA MDS Comparison (MAX MODE)", save_path = "UPGMA_MDS_comparison_max_mode.png")
+```
+
+```{r}
+tree_histogram_comparison_plot(chain_gen, chain_data, M_true_fmat,, title = "UPGMA Histogram Comparison (MAX MODE)", save_path = "UPGMA_Histogram_comparison_max_mode.png")
+```
+
+```{r}
+tree_MDS_comparison_plot(trees_gen2, trees_data, M_true_fmat, M_tree = M_upgma_fmat, title = "UPGMA MDS Comparison (AVERAGE MODE)", save_path = "UPGMA_MDS_comparison_average_mode.png")
+```
+
+```{r}
+tree_histogram_comparison_plot(chain_gen2, chain_data, M_true_fmat, title = "UPGMA Histogram Comparison (AVERAGE MODE)", save_path = "UPGMA_Histogram_comparison_average_mode.png")
+```
+
+```{r}
+#rand_tree <- rcoal(n_tips)
+rand_fmat <- res_average_M$tree_chain[[40]]
+log_dist <- Logdistance_prob(rand_fmat, M_true_fmat, beta=1, diam=1)
+print(log_dist)
+log_dist_upgma <- Logdistance_prob(rand_fmat, M_upgma_fmat, beta=1, diam=1)
+print(log_dist_upgma)
+log_post <- log_posterior(beta=1, M=M_true_fmat, coal_times=true_coalescent_times, prior_sd=1, start_tree = rand_fmat, mode = "max", sample_from_M = FALSE)
+print(log_post$log_posterior)
+log_post_upgma <- log_posterior(beta=1, M=M_upgma_fmat, coal_times=true_coalescent_times, prior_sd=1, start_tree = rand_fmat, mode = "max", sample_from_M = FALSE)
+print(log_post_upgma$log_posterior)
+```
+
+## COMPARE TO BEAST DATA (MLE TREE)
+
+```{r}
+res_max_MLE <- run_mh_beta(M_hat = M_mle_fmat,
+            beta_init = 1,
+            prior_sd = 1,
+            lambda = 1,
+            n_iter = 10000,
+            coal_times = true_coalescent_times,
+            proposal_sd = 0.5,
+            include_tree = TRUE,
+            mode = "max",
+            sample_from_M = FALSE,
+            take_every = 1
+
+)
+
+beta_chain_max_MLE <- res_max_MLE$beta_chain
+hist(beta_chain_max_MLE, breaks = 30, main = "Posterior of Beta (Max Mode, Sample from MLE)", xlab = "Beta")
+```
+
+```{r}
+res_average_MLE <- run_mh_beta(M_hat = M_mle_fmat,
+            beta_init = 1,
+            prior_sd = 1,
+            lambda = 1,
+            n_iter = 10000,
+            coal_times = true_coalescent_times,
+            proposal_sd = 0.5,
+            include_tree = TRUE,
+            mode = "average",
+            sample_from_M = FALSE,
+            take_every = 1
+
+)
+
+beta_chain_average_MLE <- res_average_MLE$beta_chain
+hist(beta_chain_average_MLE, breaks = 30, main = "Posterior of Beta (Average Mode, Sample from MLE)", xlab = "Beta")
+```
+
+```{r}
+burn_in <- 50
+sub_samp <- 1000
+chain_gen <- res_max_MLE$tree_chain
+chain_gen2 <- res_average_MLE$tree_chain
+
+burn_in <- min(burn_in, length(chain_gen) - 1)
+chain_gen <- chain_gen[(burn_in+1):length(chain_gen)]
+chain_gen2 <- chain_gen2[(burn_in+1):length(chain_gen2)]
+
+
+set.seed(42)
+chain_data <- F.list
+idx <- sample(length(chain_data), sub_samp)
+trees_data <- chain_data[idx]
+
+idx <- sample(length(chain_gen), sub_samp)
+trees_gen <- chain_gen[idx]
+
+idx <- sample(length(chain_gen2), sub_samp)
+trees_gen2 <- chain_gen2[idx]
+```
+
+```{r}
+tree_MDS_comparison_plot(trees_gen, trees_data, M_true_fmat, M_tree = M_mle_fmat, title = "MLE MDS Comparison (MAX MODE)", save_path = "MLE_MDS_comparison_max_mode.png")
+```
+
+```{r}
+tree_histogram_comparison_plot(chain_gen, chain_data, M_true_fmat, title = "MLE Histogram Comparison (MAX MODE)", save_path = "MLE_Histogram_comparison_max_mode.png")
+```
+
+```{r}
+tree_MDS_comparison_plot(trees_gen2, trees_data, M_true_fmat, M_tree = M_mle_fmat, title = "MLE MDS Comparison (AVERAGE MODE)", save_path = "MLE_MDS_comparison_average_mode.png")
+```
+
+```{r}
+tree_histogram_comparison_plot(chain_gen2, chain_data, M_true_fmat, title = "MLE Histogram Comparison (AVERAGE MODE)", save_path = "MLE_Histogram_comparison_average_mode.png")
+```

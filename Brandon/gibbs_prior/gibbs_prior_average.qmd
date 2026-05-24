@@ -1,0 +1,279 @@
+title: "Gibbs Prior Average" format: html editor: visual ---
+
+# Setup
+
+```{r}
+setwd("/Users/brandonmarks/Desktop/Research/Palacios Lab/Untitled/Enertree/Brandon/gibbs_prior")
+
+library(ape)
+library(phylodyn)
+library(phangorn)
+library(phyclust)
+library(phylotools)
+library(fmatrix)
+library(coda)
+library(ggplot2)
+
+source("utils.R")
+
+output_root <- file.path("plots", "average")
+dir.create(output_root, recursive = TRUE, showWarnings = FALSE)
+source("gibbs_prior_joint_standardized_helpers.R")
+```
+
+## Shared Data
+
+```{r}
+n_tips <- 25
+set.seed(123)
+
+sequences <- as.phyDat(read.FASTA("sequences.fasta"))
+
+M_true_tree <- read.tree("true_tree.newick")
+inter_coal_times <- coalescent.intervals(M_true_tree)$interval.length
+inter_coal_times[which(inter_coal_times <= 0.000001)] <- 0.0000001
+true_coalescent_times <- cumsum(inter_coal_times)
+M_true_fmat <- gen_Fmat(M_true_tree, tol = 8)
+```
+
+### Reference Matrices
+
+```{r}
+dm <- dist.hamming(sequences)
+
+upgma_tree <- upgma(dm)
+upgma_tree <- update_time(upgma_tree, true_coalescent_times)
+M_upgma_fmat <- gen_Fmat(upgma_tree, tol = 8)
+
+start_tree <- nj(dm)
+start_tree <- midpoint(start_tree)
+start_tree <- multi2di(start_tree, random = FALSE)
+
+fit <- pml(start_tree, data = sequences)
+fit <- optim.pml(fit, model = "JC", rearrangement = "stochastic", optClock = TRUE)
+
+mle_tree <- fit$tree
+mle_tree <- midpoint(mle_tree)
+mle_tree <- multi2di(mle_tree, random = FALSE)
+mle_tree <- update_time(mle_tree, true_coalescent_times)
+mle_tree$edge.length[mle_tree$edge.length < 1e-8] <- 1e-8
+M_mle_fmat <- gen_Fmat(mle_tree, tol = 8)
+```
+
+### BEAST Reference Data
+
+```{r}
+trees_beast_compare <- read.nexus("HKY1000Gibbs-sequences.trees")
+beast_compare_fmats <- lapply(trees_beast_compare, gen_Fmat, tol = 8)
+```
+
+# Experiments
+
+## UPGMA Max
+
+```{r}
+upgma_max_result <- run_mean_mh_experiment(
+  experiment_id = "upgma_max",
+  init_M = M_upgma_fmat,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  update_time = 1000,
+  n_iter = 10000,
+  beta = 0.1,
+  sample_beta = TRUE,
+  lambda = 1,
+  mode = "max",
+  take_every = 1,
+  include_log_Z = FALSE
+)
+
+upgma_max_summary <- render_mh_experiment(
+  result = upgma_max_result,
+  experiment_id = "upgma_max",
+  comparison_matrices = list(M_true_fmat, nearby_Fmat(upgma_max_result$average_M)),
+  comparison_labels = c("True M", "Average M"),
+  beast_compare_fmats = beast_compare_fmats,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  sub_samp = 1000,
+  seed = 44
+)
+```
+
+## True Init
+
+```{r}
+true_init_result <- run_mean_mh_experiment(
+  experiment_id = "true_init",
+  init_M = M_true_fmat,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  update_time = 1000,
+  n_iter = 10000,
+  beta = 0.1,
+  sample_beta = TRUE,
+  lambda = 1,
+  mode = "max",
+  take_every = 1,
+  include_log_Z = FALSE
+)
+
+true_init_summary <- render_mh_experiment(
+  result = true_init_result,
+  experiment_id = "true_init",
+  comparison_matrices = list(M_true_fmat, nearby_Fmat(true_init_result$average_M)),
+  comparison_labels = c("True M", "Average M"),
+  beast_compare_fmats = beast_compare_fmats,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  sub_samp = 1000,
+  seed = 45
+)
+```
+
+## MLE Init
+
+```{r}
+mle_init_result <- run_mean_mh_experiment(
+  experiment_id = "mle_init",
+  init_M = M_mle_fmat,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  update_time = 1000,
+  n_iter = 10000,
+  beta = 0.1,
+  sample_beta = TRUE,
+  lambda = 1,
+  mode = "max",
+  take_every = 1,
+  include_log_Z = FALSE
+)
+
+mle_init_summary <- render_mh_experiment(
+  result = mle_init_result,
+  experiment_id = "mle_init",
+  comparison_matrices = list(M_true_fmat, nearby_Fmat(mle_init_result$average_M)),
+  comparison_labels = c("True M", "Average M"),
+  beast_compare_fmats = beast_compare_fmats,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  sub_samp = 1000,
+  seed = 46
+)
+```
+
+## BEAST
+
+```{r}
+trees_beast_ess <- read.nexus("100THOUSANDTREES-sequences.trees")
+beast_ess_fmats <- lapply(trees_beast_ess, gen_Fmat, tol = 8)
+
+beast_summary <- render_beast_experiment(
+  beast_fmats = beast_compare_fmats,
+  experiment_id = "beast",
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  sub_samp = 1000,
+  seed = 47
+)
+
+matrix_chain_ess_heatmap(
+  beast_ess_fmats,
+  title = "beast: BEAST Unsampled ESS",
+  save_path = save_path_for("beast", "unsampled_ess.png")
+)
+
+matrix_chain_ess_heatmap(
+  beast_ess_fmats,
+  normalize = TRUE,
+  per_n_samples = 1000,
+  title = "beast: BEAST Unsampled ESS per 1000 samples",
+  save_path = save_path_for("beast", "unsampled_ess_per_1000.png")
+)
+```
+
+## Temperature Experiment
+
+```{r}
+upgma_temp_max_result <- run_mean_mh_experiment(
+  experiment_id = "upgma_temp_max",
+  init_M = M_upgma_fmat,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  update_time = 1000,
+  n_iter = 10000,
+  beta = 0.1,
+  sample_beta = TRUE,
+  lambda = 100,
+  mode = "max",
+  take_every = 1,
+  include_log_Z = FALSE
+)
+
+upgma_temp_max_summary <- render_mh_experiment(
+  result = upgma_temp_max_result,
+  experiment_id = "upgma_temp_max",
+  comparison_matrices = list(M_true_fmat, nearby_Fmat(upgma_temp_max_result$average_M)),
+  comparison_labels = c("True M", "Average M"),
+  beast_compare_fmats = beast_compare_fmats,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  sub_samp = 1000,
+  seed = 44
+)
+```
+
+```{r}
+upgma_temp1000_max_result <- run_mean_mh_experiment(
+  experiment_id = "upgma_temp1000_max",
+  init_M = M_upgma_fmat,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  update_time = 1000,
+  n_iter = 10000,
+  beta = 0.1,
+  sample_beta = TRUE,
+  lambda = 1000,
+  mode = "max",
+  take_every = 1,
+  include_log_Z = FALSE
+)
+
+upgma_temp1000_max_summary <- render_mh_experiment(
+  result = upgma_temp1000_max_result,
+  experiment_id = "upgma_temp1000_max",
+  comparison_matrices = list(M_true_fmat, nearby_Fmat(upgma_temp1000_max_result$average_M)),
+  comparison_labels = c("True M", "Average M"),
+  beast_compare_fmats = beast_compare_fmats,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  sub_samp = 1000,
+  seed = 44
+)
+```
+
+## Summary
+
+```{r}
+experiment_summary <- rbind(
+  upgma_max_summary,
+  true_init_summary,
+  mle_init_summary,
+  upgma_temp_max_summary,
+  upgma_temp1000_max_summary,
+  beast_summary
+)
+
+print(experiment_summary)
+
+write.csv(
+  experiment_summary,
+  file = file.path(output_root, "experiment_summary.csv"),
+  row.names = FALSE
+)
+
+saveRDS(
+  experiment_summary,
+  file = file.path(output_root, "experiment_summary.rds")
+)
+```

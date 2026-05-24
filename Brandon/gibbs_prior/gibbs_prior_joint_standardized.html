@@ -1,0 +1,1730 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.24">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Gibbs Prior Joint Standardized</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="gibbs_prior_joint_standardized_files/libs/clipboard/clipboard.min.js"></script>
+<script src="gibbs_prior_joint_standardized_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="gibbs_prior_joint_standardized_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="gibbs_prior_joint_standardized_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="gibbs_prior_joint_standardized_files/libs/quarto-html/popper.min.js"></script>
+<script src="gibbs_prior_joint_standardized_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="gibbs_prior_joint_standardized_files/libs/quarto-html/anchor.min.js"></script>
+<link href="gibbs_prior_joint_standardized_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="gibbs_prior_joint_standardized_files/libs/quarto-html/quarto-syntax-highlighting-dc55a5b9e770e841cd82e46aadbfb9b0.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="gibbs_prior_joint_standardized_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="gibbs_prior_joint_standardized_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="gibbs_prior_joint_standardized_files/libs/bootstrap/bootstrap-d6a003b94517c951b2d65075d42fb01b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Gibbs Prior Joint Standardized</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="setup" class="level1">
+<h1>Setup</h1>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">setwd</span>(<span class="st">"/Users/brandonmarks/Desktop/Research/Palacios Lab/Untitled/Enertree/Brandon/gibbs_prior"</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ape)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(phylodyn)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(phangorn)</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(phyclust)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(phylotools)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+Attaching package: 'phylotools'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following objects are masked from 'package:phyclust':
+
+    read.fasta, read.phylip</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(fmatrix)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(coda)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"utils.R"</span>)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>output_root <span class="ot">&lt;-</span> <span class="fu">file.path</span>(<span class="st">"plots"</span>, <span class="st">"joint_standardized"</span>)</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="fu">dir.create</span>(output_root, <span class="at">recursive =</span> <span class="cn">TRUE</span>, <span class="at">showWarnings =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="fu">source</span>(<span class="st">"gibbs_prior_joint_standardized_helpers.R"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<section id="shared-data" class="level2">
+<h2 class="anchored" data-anchor-id="shared-data">Shared Data</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>n_tips <span class="ot">&lt;-</span> <span class="dv">25</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>sequences <span class="ot">&lt;-</span> <span class="fu">as.phyDat</span>(<span class="fu">read.FASTA</span>(<span class="st">"sequences.fasta"</span>))</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>M_true_tree <span class="ot">&lt;-</span> <span class="fu">read.tree</span>(<span class="st">"true_tree.newick"</span>)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>inter_coal_times <span class="ot">&lt;-</span> <span class="fu">coalescent.intervals</span>(M_true_tree)<span class="sc">$</span>interval.length</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>inter_coal_times[<span class="fu">which</span>(inter_coal_times <span class="sc">&lt;=</span> <span class="fl">0.000001</span>)] <span class="ot">&lt;-</span> <span class="fl">0.0000001</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>true_coalescent_times <span class="ot">&lt;-</span> <span class="fu">cumsum</span>(inter_coal_times)</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>M_true_fmat <span class="ot">&lt;-</span> <span class="fu">gen_Fmat</span>(M_true_tree, <span class="at">tol =</span> <span class="dv">8</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<section id="reference-matrices" class="level3">
+<h3 class="anchored" data-anchor-id="reference-matrices">Reference Matrices</h3>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>dm <span class="ot">&lt;-</span> <span class="fu">dist.hamming</span>(sequences)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>upgma_tree <span class="ot">&lt;-</span> <span class="fu">upgma</span>(dm)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>upgma_tree <span class="ot">&lt;-</span> <span class="fu">update_time</span>(upgma_tree, true_coalescent_times)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>M_upgma_fmat <span class="ot">&lt;-</span> <span class="fu">gen_Fmat</span>(upgma_tree, <span class="at">tol =</span> <span class="dv">8</span>)</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>start_tree <span class="ot">&lt;-</span> <span class="fu">nj</span>(dm)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>start_tree <span class="ot">&lt;-</span> <span class="fu">midpoint</span>(start_tree)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>start_tree <span class="ot">&lt;-</span> <span class="fu">multi2di</span>(start_tree, <span class="at">random =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">pml</span>(start_tree, <span class="at">data =</span> sequences)</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">optim.pml</span>(fit, <span class="at">model =</span> <span class="st">"JC"</span>, <span class="at">rearrangement =</span> <span class="st">"stochastic"</span>, <span class="at">optClock =</span> <span class="cn">TRUE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: I unrooted the tree</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>optimize edge weights:  -41002.79 --&gt; -34616.89 
+optimize edge weights:  -34616.89 --&gt; -34611.99 
+optimize topology:  -34611.99 --&gt; -34605.75  NNI moves:  13 
+optimize edge weights:  -34605.75 --&gt; -34605.45 
+optimize topology:  -34605.45 --&gt; -34605.37  NNI moves:  1 
+optimize edge weights:  -34605.37 --&gt; -34605.34 
+optimize topology:  -34605.34 --&gt; -34605.33  NNI moves:  5 
+optimize edge weights:  -34605.33 --&gt; -34605.32 
+optimize topology:  -34605.32 --&gt; -34605.32  NNI moves:  6 
+optimize edge weights:  -34605.32 --&gt; -34605.32 
+optimize topology:  -34605.32 --&gt; -34605.32  NNI moves:  1 
+optimize edge weights:  -34605.32 --&gt; -34605.32 
+optimize topology:  -34605.32 --&gt; -34605.32  NNI moves:  0 
+optimize topology:  -34612.5 --&gt; -34605.62  NNI moves:  22 
+Ratchet iteration  1 , best pscore so far: -34605.32 
+optimize topology:  -34616.78 --&gt; -34601.82  NNI moves:  18 
+Ratchet iteration  2 , best pscore so far: -34601.82 
+optimize topology:  -34605.22 --&gt; -34601.76  NNI moves:  11 
+Ratchet iteration  3 , best pscore so far: -34601.76 
+optimize topology:  -34612.48 --&gt; -34607.28  NNI moves:  17 
+Ratchet iteration  4 , best pscore so far: -34601.76 
+optimize topology:  -34612.42 --&gt; -34603.08  NNI moves:  11 
+Ratchet iteration  5 , best pscore so far: -34601.76 
+optimize topology:  -34615.38 --&gt; -34609.96  NNI moves:  31 
+Ratchet iteration  6 , best pscore so far: -34601.76 
+optimize topology:  -34614.39 --&gt; -34604.41  NNI moves:  13 
+Ratchet iteration  7 , best pscore so far: -34601.76 
+optimize topology:  -34608.44 --&gt; -34604.82  NNI moves:  10 
+Ratchet iteration  8 , best pscore so far: -34601.76 
+optimize topology:  -34607.75 --&gt; -34604.54  NNI moves:  32 
+Ratchet iteration  9 , best pscore so far: -34601.76 
+optimize topology:  -34607.47 --&gt; -34603.9  NNI moves:  10 
+Ratchet iteration  10 , best pscore so far: -34601.76 
+optimize topology:  -34609.13 --&gt; -34604.22  NNI moves:  11 
+Ratchet iteration  11 , best pscore so far: -34601.76 
+optimize topology:  -34608.92 --&gt; -34603.91  NNI moves:  11 
+Ratchet iteration  12 , best pscore so far: -34601.76 
+optimize topology:  -34610.31 --&gt; -34602.7  NNI moves:  34 
+Ratchet iteration  13 , best pscore so far: -34601.76 
+optimize topology:  -34607.51 --&gt; -34602.66  NNI moves:  6 
+Ratchet iteration  14 , best pscore so far: -34601.76 
+optimize topology:  -34608.46 --&gt; -34602.56  NNI moves:  13 
+Ratchet iteration  15 , best pscore so far: -34601.76 
+optimize topology:  -34615.64 --&gt; -34607.37  NNI moves:  11 
+Ratchet iteration  16 , best pscore so far: -34601.76 
+optimize topology:  -34608.91 --&gt; -34602.57  NNI moves:  6 
+Ratchet iteration  17 , best pscore so far: -34601.76 
+optimize topology:  -34610.73 --&gt; -34602.89  NNI moves:  8 
+Ratchet iteration  18 , best pscore so far: -34601.76 
+optimize topology:  -34612.46 --&gt; -34603.33  NNI moves:  17 
+Ratchet iteration  19 , best pscore so far: -34601.76 
+optimize topology:  -34614.57 --&gt; -34607.74  NNI moves:  25 
+Ratchet iteration  20 , best pscore so far: -34601.76 
+optimize topology:  -34612.07 --&gt; -34605.87  NNI moves:  11 
+Ratchet iteration  21 , best pscore so far: -34601.76 
+optimize topology:  -34608.75 --&gt; -34600.02  NNI moves:  13 
+Ratchet iteration  22 , best pscore so far: -34600.02 
+optimize topology:  -34608.24 --&gt; -34604.09  NNI moves:  19 
+Ratchet iteration  23 , best pscore so far: -34600.02 
+optimize topology:  -34608.08 --&gt; -34601.39  NNI moves:  25 
+Ratchet iteration  24 , best pscore so far: -34600.02 
+optimize topology:  -34609.92 --&gt; -34602.88  NNI moves:  12 
+Ratchet iteration  25 , best pscore so far: -34600.02 
+optimize topology:  -34610.56 --&gt; -34602.4  NNI moves:  11 
+Ratchet iteration  26 , best pscore so far: -34600.02 
+optimize topology:  -34608.15 --&gt; -34602.92  NNI moves:  15 
+Ratchet iteration  27 , best pscore so far: -34600.02 
+optimize topology:  -34613.09 --&gt; -34606.12  NNI moves:  19 
+Ratchet iteration  28 , best pscore so far: -34600.02 
+optimize topology:  -34606.76 --&gt; -34600.54  NNI moves:  8 
+Ratchet iteration  29 , best pscore so far: -34600.02 
+optimize topology:  -34608.7 --&gt; -34601.09  NNI moves:  10 
+Ratchet iteration  30 , best pscore so far: -34600.02 
+optimize topology:  -34611.33 --&gt; -34602.15  NNI moves:  18 
+Ratchet iteration  31 , best pscore so far: -34600.02 
+optimize topology:  -34602.54 --&gt; -34598.68  NNI moves:  12 
+Ratchet iteration  32 , best pscore so far: -34598.68 
+optimize topology:  -34609.48 --&gt; -34603.39  NNI moves:  19 
+Ratchet iteration  33 , best pscore so far: -34598.68 
+optimize topology:  -34616.45 --&gt; -34603.12  NNI moves:  9 
+Ratchet iteration  34 , best pscore so far: -34598.68 
+optimize topology:  -34616.01 --&gt; -34607.42  NNI moves:  14 
+Ratchet iteration  35 , best pscore so far: -34598.68 
+optimize topology:  -34604.69 --&gt; -34598.48  NNI moves:  12 
+Ratchet iteration  36 , best pscore so far: -34598.48 
+optimize topology:  -34611.57 --&gt; -34598.8  NNI moves:  5 
+Ratchet iteration  37 , best pscore so far: -34598.48 
+optimize topology:  -34611.79 --&gt; -34602.03  NNI moves:  16 
+Ratchet iteration  38 , best pscore so far: -34598.48 
+optimize topology:  -34616.39 --&gt; -34598.94  NNI moves:  13 
+Ratchet iteration  39 , best pscore so far: -34598.48 
+optimize topology:  -34608.73 --&gt; -34605.42  NNI moves:  22 
+Ratchet iteration  40 , best pscore so far: -34598.48 
+optimize topology:  -34604.93 --&gt; -34601.49  NNI moves:  8 
+Ratchet iteration  41 , best pscore so far: -34598.48 
+optimize topology:  -34611.12 --&gt; -34600.92  NNI moves:  20 
+Ratchet iteration  42 , best pscore so far: -34598.48 
+optimize topology:  -34611.06 --&gt; -34604.68  NNI moves:  38 
+Ratchet iteration  43 , best pscore so far: -34598.48 
+optimize topology:  -34612.43 --&gt; -34607.84  NNI moves:  6 
+Ratchet iteration  44 , best pscore so far: -34598.48 
+optimize topology:  -34609.91 --&gt; -34599.09  NNI moves:  10 
+Ratchet iteration  45 , best pscore so far: -34598.48 
+optimize topology:  -34604.92 --&gt; -34599.57  NNI moves:  14 
+Ratchet iteration  46 , best pscore so far: -34598.48 
+optimize topology:  -34603.61 --&gt; -34598.47  NNI moves:  13 
+Ratchet iteration  47 , best pscore so far: -34598.47 
+optimize topology:  -34614.61 --&gt; -34601.61  NNI moves:  23 
+Ratchet iteration  48 , best pscore so far: -34598.47 
+optimize topology:  -34610.53 --&gt; -34598.87  NNI moves:  9 
+Ratchet iteration  49 , best pscore so far: -34598.47 
+optimize topology:  -34617.17 --&gt; -34606.23  NNI moves:  31 
+Ratchet iteration  50 , best pscore so far: -34598.47 
+optimize topology:  -34613.5 --&gt; -34598.78  NNI moves:  9 
+Ratchet iteration  51 , best pscore so far: -34598.47 
+optimize topology:  -34612.58 --&gt; -34604.73  NNI moves:  24 
+Ratchet iteration  52 , best pscore so far: -34598.47 
+optimize topology:  -34614.3 --&gt; -34602.78  NNI moves:  12 
+Ratchet iteration  53 , best pscore so far: -34598.47 
+optimize topology:  -34605.32 --&gt; -34603.5  NNI moves:  16 
+Ratchet iteration  54 , best pscore so far: -34598.47 
+optimize topology:  -34616.57 --&gt; -34599.11  NNI moves:  16 
+Ratchet iteration  55 , best pscore so far: -34598.47 
+optimize topology:  -34607.42 --&gt; -34604.38  NNI moves:  16 
+Ratchet iteration  56 , best pscore so far: -34598.47 
+optimize topology:  -34616.16 --&gt; -34599.86  NNI moves:  26 
+Ratchet iteration  57 , best pscore so far: -34598.47 
+optimize topology:  -34617.08 --&gt; -34599.46  NNI moves:  15 
+Ratchet iteration  58 , best pscore so far: -34598.47 
+optimize topology:  -34618.8 --&gt; -34615.67  NNI moves:  11 
+Ratchet iteration  59 , best pscore so far: -34598.47 
+optimize topology:  -34608.34 --&gt; -34606.69  NNI moves:  7 
+Ratchet iteration  60 , best pscore so far: -34598.47 
+optimize topology:  -34614.93 --&gt; -34609.4  NNI moves:  13 
+Ratchet iteration  61 , best pscore so far: -34598.47 
+optimize topology:  -34609.86 --&gt; -34608.22  NNI moves:  11 
+Ratchet iteration  62 , best pscore so far: -34598.47 
+optimize topology:  -34622.03 --&gt; -34607.28  NNI moves:  9 
+Ratchet iteration  63 , best pscore so far: -34598.47 
+optimize topology:  -34614.19 --&gt; -34600.12  NNI moves:  28 
+Ratchet iteration  64 , best pscore so far: -34598.47 
+optimize topology:  -34605.38 --&gt; -34600.71  NNI moves:  11 
+Ratchet iteration  65 , best pscore so far: -34598.47 
+optimize topology:  -34614.31 --&gt; -34611.56  NNI moves:  34 
+Ratchet iteration  66 , best pscore so far: -34598.47 
+optimize topology:  -34619.61 --&gt; -34606.99  NNI moves:  32 
+Ratchet iteration  67 , best pscore so far: -34598.47 
+optimize topology:  -34607.9 --&gt; -34603.61  NNI moves:  31 
+Ratchet iteration  68 , best pscore so far: -34598.47 
+optimize topology:  -34613 --&gt; -34604.58  NNI moves:  27 
+Ratchet iteration  69 , best pscore so far: -34598.47 
+optimize topology:  -34616.02 --&gt; -34604.25  NNI moves:  23 
+Ratchet iteration  70 , best pscore so far: -34598.47 
+optimize topology:  -34615.77 --&gt; -34598.67  NNI moves:  27 
+Ratchet iteration  71 , best pscore so far: -34598.47 
+optimize topology:  -34621.49 --&gt; -34611.8  NNI moves:  31 
+Ratchet iteration  72 , best pscore so far: -34598.47 
+optimize topology:  -34608.81 --&gt; -34602.47  NNI moves:  8 
+Ratchet iteration  73 , best pscore so far: -34598.47 
+optimize topology:  -34607.96 --&gt; -34601.12  NNI moves:  22 
+Ratchet iteration  74 , best pscore so far: -34598.47 
+optimize topology:  -34603.36 --&gt; -34599.27  NNI moves:  7 
+Ratchet iteration  75 , best pscore so far: -34598.47 
+optimize topology:  -34610.7 --&gt; -34602.01  NNI moves:  24 
+Ratchet iteration  76 , best pscore so far: -34598.47 
+optimize topology:  -34604.93 --&gt; -34599.9  NNI moves:  7 
+Ratchet iteration  77 , best pscore so far: -34598.47 
+optimize topology:  -34627.6 --&gt; -34617.23  NNI moves:  9 
+Ratchet iteration  78 , best pscore so far: -34598.47 
+optimize topology:  -34616.78 --&gt; -34605.57  NNI moves:  17 
+Ratchet iteration  79 , best pscore so far: -34598.47 
+optimize topology:  -34603.36 --&gt; -34600.78  NNI moves:  7 
+Ratchet iteration  80 , best pscore so far: -34598.47 
+optimize topology:  -34615.74 --&gt; -34609.11  NNI moves:  13 
+Ratchet iteration  81 , best pscore so far: -34598.47 
+optimize topology:  -34614.33 --&gt; -34607.92  NNI moves:  16 
+Ratchet iteration  82 , best pscore so far: -34598.47 
+optimize topology:  -34616.02 --&gt; -34602.88  NNI moves:  9 
+Ratchet iteration  83 , best pscore so far: -34598.47 
+optimize topology:  -34604.17 --&gt; -34601.16  NNI moves:  20 
+Ratchet iteration  84 , best pscore so far: -34598.47 
+optimize topology:  -34607.12 --&gt; -34606.09  NNI moves:  21 
+Ratchet iteration  85 , best pscore so far: -34598.47 
+optimize topology:  -34605.53 --&gt; -34599.97  NNI moves:  10 
+Ratchet iteration  86 , best pscore so far: -34598.47 
+optimize topology:  -34617.76 --&gt; -34602.78  NNI moves:  12 
+Ratchet iteration  87 , best pscore so far: -34598.47 
+optimize topology:  -34609.8 --&gt; -34607.99  NNI moves:  6 
+Ratchet iteration  88 , best pscore so far: -34598.47 
+optimize topology:  -34619.72 --&gt; -34608.67  NNI moves:  22 
+Ratchet iteration  89 , best pscore so far: -34598.47 
+optimize topology:  -34616.13 --&gt; -34608.78  NNI moves:  21 
+Ratchet iteration  90 , best pscore so far: -34598.47 
+optimize topology:  -34615.27 --&gt; -34599  NNI moves:  16 
+Ratchet iteration  91 , best pscore so far: -34598.47 
+optimize topology:  -34610.38 --&gt; -34599.54  NNI moves:  10 
+Ratchet iteration  92 , best pscore so far: -34598.47 
+optimize topology:  -34614.25 --&gt; -34607.3  NNI moves:  10 
+Ratchet iteration  93 , best pscore so far: -34598.47 
+optimize topology:  -34603.36 --&gt; -34598.44  NNI moves:  12 
+Ratchet iteration  94 , best pscore so far: -34598.44 
+optimize topology:  -34616.17 --&gt; -34609.07  NNI moves:  19 
+Ratchet iteration  95 , best pscore so far: -34598.44 
+optimize topology:  -34613.91 --&gt; -34605.86  NNI moves:  11 
+Ratchet iteration  96 , best pscore so far: -34598.44 
+optimize topology:  -34604.75 --&gt; -34598.52  NNI moves:  7 
+Ratchet iteration  97 , best pscore so far: -34598.44 
+optimize topology:  -34616.61 --&gt; -34603.14  NNI moves:  27 
+Ratchet iteration  98 , best pscore so far: -34598.44 
+optimize topology:  -34608.32 --&gt; -34598.76  NNI moves:  6 
+Ratchet iteration  99 , best pscore so far: -34598.44 
+optimize topology:  -34617.41 --&gt; -34602.02  NNI moves:  26 
+Ratchet iteration  100 , best pscore so far: -34598.44 
+optimize topology:  -34605.85 --&gt; -34602.2  NNI moves:  21 
+Ratchet iteration  101 , best pscore so far: -34598.44 
+optimize topology:  -34607.27 --&gt; -34601.14  NNI moves:  33 
+Ratchet iteration  102 , best pscore so far: -34598.44 
+optimize topology:  -34602.87 --&gt; -34598.53  NNI moves:  6 
+Ratchet iteration  103 , best pscore so far: -34598.44 
+optimize topology:  -34609.86 --&gt; -34600.13  NNI moves:  11 
+Ratchet iteration  104 , best pscore so far: -34598.44 
+optimize topology:  -34611.44 --&gt; -34603.88  NNI moves:  24 
+Ratchet iteration  105 , best pscore so far: -34598.44 
+optimize topology:  -34611.75 --&gt; -34605.13  NNI moves:  11 
+Ratchet iteration  106 , best pscore so far: -34598.44 
+optimize topology:  -34605.3 --&gt; -34601.21  NNI moves:  12 
+Ratchet iteration  107 , best pscore so far: -34598.44 
+optimize topology:  -34605.37 --&gt; -34599.08  NNI moves:  6 
+Ratchet iteration  108 , best pscore so far: -34598.44 
+optimize topology:  -34618.05 --&gt; -34607.27  NNI moves:  39 
+Ratchet iteration  109 , best pscore so far: -34598.44 
+optimize topology:  -34618.06 --&gt; -34602.55  NNI moves:  20 
+Ratchet iteration  110 , best pscore so far: -34598.44 
+optimize topology:  -34603.62 --&gt; -34599.16  NNI moves:  29 
+Ratchet iteration  111 , best pscore so far: -34598.44 
+optimize topology:  -34612.53 --&gt; -34600.55  NNI moves:  17 
+Ratchet iteration  112 , best pscore so far: -34598.44 
+optimize topology:  -34608.15 --&gt; -34601.05  NNI moves:  21 
+Ratchet iteration  113 , best pscore so far: -34598.44 
+optimize edge weights:  -34598.44 --&gt; -34598.4 
+optimize topology:  -34598.4 --&gt; -34598.39  NNI moves:  0 
+optimize edge weights:  -34598.39 --&gt; -34598.37 
+optimize edge weights:  -34598.37 --&gt; -34598.36 
+optimize edge weights:  -34598.36 --&gt; -34598.35 
+optimize edge weights:  -34598.35 --&gt; -34598.35 
+optimize edge weights:  -34598.35 --&gt; -34598.35 </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>mle_tree <span class="ot">&lt;-</span> fit<span class="sc">$</span>tree</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>mle_tree <span class="ot">&lt;-</span> <span class="fu">midpoint</span>(mle_tree)</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>mle_tree <span class="ot">&lt;-</span> <span class="fu">multi2di</span>(mle_tree, <span class="at">random =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>mle_tree <span class="ot">&lt;-</span> <span class="fu">update_time</span>(mle_tree, true_coalescent_times)</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>mle_tree<span class="sc">$</span>edge.length[mle_tree<span class="sc">$</span>edge.length <span class="sc">&lt;</span> <span class="fl">1e-8</span>] <span class="ot">&lt;-</span> <span class="fl">1e-8</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>M_mle_fmat <span class="ot">&lt;-</span> <span class="fu">gen_Fmat</span>(mle_tree, <span class="at">tol =</span> <span class="dv">8</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="beast-reference-data" class="level3">
+<h3 class="anchored" data-anchor-id="beast-reference-data">BEAST Reference Data</h3>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>trees_beast_compare <span class="ot">&lt;-</span> <span class="fu">read.nexus</span>(<span class="st">"HKY1000Gibbs-sequences.trees"</span>)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>beast_compare_fmats <span class="ot">&lt;-</span> <span class="fu">lapply</span>(trees_beast_compare, gen_Fmat, <span class="at">tol =</span> <span class="dv">8</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+</section>
+</section>
+<section id="experiments" class="level1">
+<h1>Experiments</h1>
+<section id="upgma-max" class="level2">
+<h2 class="anchored" data-anchor-id="upgma-max">UPGMA Max</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>upgma_max_result <span class="ot">&lt;-</span> <span class="fu">run_joint_mh_experiment</span>(</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">experiment_id =</span> <span class="st">"upgma_max"</span>,</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">init_M =</span> M_upgma_fmat,</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">coal_times =</span> true_coalescent_times,</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">sequences =</span> sequences,</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_iter =</span> <span class="dv">10000</span>,</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">beta_init =</span> <span class="dv">1</span>,</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">prior_sd =</span> <span class="dv">1</span>,</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">proposal_sd =</span> <span class="fl">0.5</span>,</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">lambda =</span> <span class="dv">1</span>,</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">mode =</span> <span class="st">"max"</span>,</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">take_every =</span> <span class="dv">1</span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Iteration: 1000 Current Beta: 0.02487472 Log Posterior: -34716.32  
+Iteration: 2000 Current Beta: 0.01931511 Log Posterior: -34719.17  
+Iteration: 3000 Current Beta: 0.008227324 Log Posterior: -34720.95  
+Iteration: 4000 Current Beta: 0.04685663 Log Posterior: -34718.96  
+Iteration: 5000 Current Beta: 0.03391782 Log Posterior: -34715.55  
+Iteration: 6000 Current Beta: 0.008359849 Log Posterior: -34719.35  
+Iteration: 7000 Current Beta: 0.01723501 Log Posterior: -34718.41  
+Iteration: 8000 Current Beta: 0.0665727 Log Posterior: -34720.61  
+Iteration: 9000 Current Beta: 0.02279108 Log Posterior: -34715.98  
+Iteration: 10000 Current Beta: 0.02374857 Log Posterior: -34715.25  </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>upgma_max_summary <span class="ot">&lt;-</span> <span class="fu">render_mh_experiment</span>(</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">result =</span> upgma_max_result,</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">experiment_id =</span> <span class="st">"upgma_max"</span>,</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">comparison_matrices =</span> <span class="fu">list</span>(M_true_fmat, upgma_max_result<span class="sc">$</span>average_M),</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">comparison_labels =</span> <span class="fu">c</span>(<span class="st">"True M"</span>, <span class="st">"Average M"</span>),</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">beast_compare_fmats =</span> beast_compare_fmats,</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">coal_times =</span> true_coalescent_times,</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">sequences =</span> sequences,</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">sub_samp =</span> <span class="dv">1000</span>,</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">44</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Rendering experiment outputs for upgma_max </code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-5-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-5-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-5-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Proportion of variance captured in 2D: 0.553"</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-5-4.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-5-5.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Running prefix-over-time diagnostics for upgma_max 
+Building prefix summaries for 5 splits.
+Creating prefix MDS comparison against sampleF reference.
+  split 1/5 - prefix end = 2000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0252 ).
+  split 2/5 - prefix end = 4000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0231 ).
+  split 3/5 - prefix end = 6000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0238 ).
+  split 4/5 - prefix end = 8000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0237 ).
+  split 5/5 - prefix end = 10000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0241 ).</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-5-6.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Creating prefix MDS comparison against beast reference.
+  split 1/5 - prefix end = 2000 
+  split 2/5 - prefix end = 4000 
+  split 3/5 - prefix end = 6000 
+  split 4/5 - prefix end = 8000 
+  split 5/5 - prefix end = 10000 </code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-5-7.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-5-8.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in scale_fill_gradient(low = "grey95", high = "darkgreen", trans = "log10", : log-10 transformation introduced infinite values.
+log-10 transformation introduced infinite values.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-5-9.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-5-10.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in scale_fill_gradient(low = "grey95", high = "darkgreen", trans = "log10", : log-10 transformation introduced infinite values.
+log-10 transformation introduced infinite values.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-5-11.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="true-init" class="level2">
+<h2 class="anchored" data-anchor-id="true-init">True Init</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>true_init_result <span class="ot">&lt;-</span> <span class="fu">run_joint_mh_experiment</span>(</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">experiment_id =</span> <span class="st">"true_init"</span>,</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">init_M =</span> M_true_fmat,</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">coal_times =</span> true_coalescent_times,</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">sequences =</span> sequences,</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_iter =</span> <span class="dv">10000</span>,</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">beta_init =</span> <span class="dv">1</span>,</span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">prior_sd =</span> <span class="dv">1</span>,</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">proposal_sd =</span> <span class="fl">0.5</span>,</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">lambda =</span> <span class="dv">1</span>,</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">mode =</span> <span class="st">"max"</span>,</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">take_every =</span> <span class="dv">1</span></span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Iteration: 1000 Current Beta: 0.0124717 Log Posterior: -34719.68  
+Iteration: 2000 Current Beta: 0.03571863 Log Posterior: -34714.76  
+Iteration: 3000 Current Beta: 0.02250267 Log Posterior: -34716.18  
+Iteration: 4000 Current Beta: 0.0227175 Log Posterior: -34716.12  
+Iteration: 5000 Current Beta: 0.03086212 Log Posterior: -34718.1  
+Iteration: 6000 Current Beta: 0.008570594 Log Posterior: -34720.76  
+Iteration: 7000 Current Beta: 0.02847839 Log Posterior: -34716.01  
+Iteration: 8000 Current Beta: 0.02137892 Log Posterior: -34718.47  
+Iteration: 9000 Current Beta: 0.01112991 Log Posterior: -34718.06  
+Iteration: 10000 Current Beta: 0.01051893 Log Posterior: -34721.64  </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>true_init_summary <span class="ot">&lt;-</span> <span class="fu">render_mh_experiment</span>(</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">result =</span> true_init_result,</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">experiment_id =</span> <span class="st">"true_init"</span>,</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">comparison_matrices =</span> <span class="fu">list</span>(M_true_fmat, true_init_result<span class="sc">$</span>average_M),</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">comparison_labels =</span> <span class="fu">c</span>(<span class="st">"True M"</span>, <span class="st">"Average M"</span>),</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">beast_compare_fmats =</span> beast_compare_fmats,</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">coal_times =</span> true_coalescent_times,</span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">sequences =</span> sequences,</span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">sub_samp =</span> <span class="dv">1000</span>,</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">45</span></span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Rendering experiment outputs for true_init </code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-6-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-6-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Proportion of variance captured in 2D: 0.541"</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-6-4.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-6-5.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Running prefix-over-time diagnostics for true_init 
+Building prefix summaries for 5 splits.
+Creating prefix MDS comparison against sampleF reference.
+  split 1/5 - prefix end = 2000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0279 ).
+  split 2/5 - prefix end = 4000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.026 ).
+  split 3/5 - prefix end = 6000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0256 ).
+  split 4/5 - prefix end = 8000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0257 ).
+  split 5/5 - prefix end = 10000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0256 ).</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-6-6.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Creating prefix MDS comparison against beast reference.
+  split 1/5 - prefix end = 2000 
+  split 2/5 - prefix end = 4000 
+  split 3/5 - prefix end = 6000 
+  split 4/5 - prefix end = 8000 
+  split 5/5 - prefix end = 10000 </code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-6-7.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-6-8.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in scale_fill_gradient(low = "grey95", high = "darkgreen", trans = "log10", : log-10 transformation introduced infinite values.
+log-10 transformation introduced infinite values.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-6-9.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-6-10.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in scale_fill_gradient(low = "grey95", high = "darkgreen", trans = "log10", : log-10 transformation introduced infinite values.
+log-10 transformation introduced infinite values.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-6-11.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="mle-init" class="level2">
+<h2 class="anchored" data-anchor-id="mle-init">MLE Init</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>mle_init_result <span class="ot">&lt;-</span> <span class="fu">run_joint_mh_experiment</span>(</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">experiment_id =</span> <span class="st">"mle_init"</span>,</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">init_M =</span> M_mle_fmat,</span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">coal_times =</span> true_coalescent_times,</span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">sequences =</span> sequences,</span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_iter =</span> <span class="dv">10000</span>,</span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">beta_init =</span> <span class="dv">1</span>,</span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">prior_sd =</span> <span class="dv">1</span>,</span>
+<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">proposal_sd =</span> <span class="fl">0.5</span>,</span>
+<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">lambda =</span> <span class="dv">1</span>,</span>
+<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">mode =</span> <span class="st">"max"</span>,</span>
+<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">take_every =</span> <span class="dv">1</span></span>
+<span id="cb29-13"><a href="#cb29-13" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Iteration: 1000 Current Beta: 0.03177595 Log Posterior: -34716.66  
+Iteration: 2000 Current Beta: 0.02097609 Log Posterior: -34719.96  
+Iteration: 3000 Current Beta: 0.01723533 Log Posterior: -34719.53  
+Iteration: 4000 Current Beta: 0.007158922 Log Posterior: -34720.28  
+Iteration: 5000 Current Beta: 0.02610316 Log Posterior: -34716.58  
+Iteration: 6000 Current Beta: 0.009649874 Log Posterior: -34719.94  
+Iteration: 7000 Current Beta: 0.03054062 Log Posterior: -34715.84  
+Iteration: 8000 Current Beta: 0.04196665 Log Posterior: -34715.96  
+Iteration: 9000 Current Beta: 0.02029132 Log Posterior: -34717.72  
+Iteration: 10000 Current Beta: 0.01143858 Log Posterior: -34718.49  </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>mle_init_summary <span class="ot">&lt;-</span> <span class="fu">render_mh_experiment</span>(</span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">result =</span> mle_init_result,</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">experiment_id =</span> <span class="st">"mle_init"</span>,</span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">comparison_matrices =</span> <span class="fu">list</span>(M_true_fmat, mle_init_result<span class="sc">$</span>average_M),</span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">comparison_labels =</span> <span class="fu">c</span>(<span class="st">"True M"</span>, <span class="st">"Average M"</span>),</span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">beast_compare_fmats =</span> beast_compare_fmats,</span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">coal_times =</span> true_coalescent_times,</span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">sequences =</span> sequences,</span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">sub_samp =</span> <span class="dv">1000</span>,</span>
+<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">46</span></span>
+<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Rendering experiment outputs for mle_init </code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-7-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-7-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Proportion of variance captured in 2D: 0.5588"</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-7-4.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-7-5.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Running prefix-over-time diagnostics for mle_init 
+Building prefix summaries for 5 splits.
+Creating prefix MDS comparison against sampleF reference.
+  split 1/5 - prefix end = 2000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0271 ).
+  split 2/5 - prefix end = 4000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0251 ).
+  split 3/5 - prefix end = 6000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0249 ).
+  split 4/5 - prefix end = 8000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0251 ).
+  split 5/5 - prefix end = 10000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0257 ).</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-7-6.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Creating prefix MDS comparison against beast reference.
+  split 1/5 - prefix end = 2000 
+  split 2/5 - prefix end = 4000 
+  split 3/5 - prefix end = 6000 
+  split 4/5 - prefix end = 8000 
+  split 5/5 - prefix end = 10000 </code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-7-7.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-7-8.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in scale_fill_gradient(low = "grey95", high = "darkgreen", trans = "log10", : log-10 transformation introduced infinite values.
+log-10 transformation introduced infinite values.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-7-9.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-7-10.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in scale_fill_gradient(low = "grey95", high = "darkgreen", trans = "log10", : log-10 transformation introduced infinite values.
+log-10 transformation introduced infinite values.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-7-11.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="beast" class="level2">
+<h2 class="anchored" data-anchor-id="beast">BEAST</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a>trees_beast_ess <span class="ot">&lt;-</span> <span class="fu">read.nexus</span>(<span class="st">"100THOUSANDTREES-sequences.trees"</span>)</span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>beast_ess_fmats <span class="ot">&lt;-</span> <span class="fu">lapply</span>(trees_beast_ess, gen_Fmat, <span class="at">tol =</span> <span class="dv">8</span>)</span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a>beast_summary <span class="ot">&lt;-</span> <span class="fu">render_beast_experiment</span>(</span>
+<span id="cb38-5"><a href="#cb38-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">beast_fmats =</span> beast_compare_fmats,</span>
+<span id="cb38-6"><a href="#cb38-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">experiment_id =</span> <span class="st">"beast"</span>,</span>
+<span id="cb38-7"><a href="#cb38-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">coal_times =</span> true_coalescent_times,</span>
+<span id="cb38-8"><a href="#cb38-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">sequences =</span> sequences,</span>
+<span id="cb38-9"><a href="#cb38-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">sub_samp =</span> <span class="dv">1000</span>,</span>
+<span id="cb38-10"><a href="#cb38-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">47</span></span>
+<span id="cb38-11"><a href="#cb38-11" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-8-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-8-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in scale_fill_gradient(low = "grey95", high = "darkgreen", trans = "log10", : log-10 transformation introduced infinite values.
+log-10 transformation introduced infinite values.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-8-4.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="fu">matrix_chain_ess_heatmap</span>(</span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>  beast_ess_fmats,</span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">title =</span> <span class="st">"beast: BEAST Unsampled ESS"</span>,</span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">save_path =</span> <span class="fu">save_path_for</span>(<span class="st">"beast"</span>, <span class="st">"unsampled_ess.png"</span>)</span>
+<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-8-5.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb41"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="fu">matrix_chain_ess_heatmap</span>(</span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a>  beast_ess_fmats,</span>
+<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">normalize =</span> <span class="cn">TRUE</span>,</span>
+<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">per_n_samples =</span> <span class="dv">1000</span>,</span>
+<span id="cb41-5"><a href="#cb41-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">title =</span> <span class="st">"beast: BEAST Unsampled ESS per 1000 samples"</span>,</span>
+<span id="cb41-6"><a href="#cb41-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">save_path =</span> <span class="fu">save_path_for</span>(<span class="st">"beast"</span>, <span class="st">"unsampled_ess_per_1000.png"</span>)</span>
+<span id="cb41-7"><a href="#cb41-7" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in scale_fill_gradient(low = "grey95", high = "darkgreen", trans = "log10", : log-10 transformation introduced infinite values.
+log-10 transformation introduced infinite values.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-8-6.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="temperature-experiment" class="level2">
+<h2 class="anchored" data-anchor-id="temperature-experiment">Temperature Experiment</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb43"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a>upgma_temp_max_result <span class="ot">&lt;-</span> <span class="fu">run_joint_mh_experiment</span>(</span>
+<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">experiment_id =</span> <span class="st">"upgma_temp_max"</span>,</span>
+<span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">init_M =</span> M_upgma_fmat,</span>
+<span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">coal_times =</span> true_coalescent_times,</span>
+<span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">sequences =</span> sequences,</span>
+<span id="cb43-6"><a href="#cb43-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_iter =</span> <span class="dv">10000</span>,</span>
+<span id="cb43-7"><a href="#cb43-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">beta_init =</span> <span class="dv">1</span>,</span>
+<span id="cb43-8"><a href="#cb43-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">prior_sd =</span> <span class="dv">1</span>,</span>
+<span id="cb43-9"><a href="#cb43-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">proposal_sd =</span> <span class="fl">0.5</span>,</span>
+<span id="cb43-10"><a href="#cb43-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">lambda =</span> <span class="dv">100</span>,</span>
+<span id="cb43-11"><a href="#cb43-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">mode =</span> <span class="st">"max"</span>,</span>
+<span id="cb43-12"><a href="#cb43-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">take_every =</span> <span class="dv">1</span></span>
+<span id="cb43-13"><a href="#cb43-13" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Iteration: 1000 Current Beta: 0.01028371 Log Posterior: -413.3859  
+Iteration: 2000 Current Beta: 0.02309885 Log Posterior: -408.4737  
+Iteration: 3000 Current Beta: 0.06010023 Log Posterior: -409.9259  
+Iteration: 4000 Current Beta: 0.01739431 Log Posterior: -409.9919  
+Iteration: 5000 Current Beta: 0.03186071 Log Posterior: -407.0364  
+Iteration: 6000 Current Beta: 0.02572031 Log Posterior: -409.0347  
+Iteration: 7000 Current Beta: 0.02449998 Log Posterior: -409.0902  
+Iteration: 8000 Current Beta: 0.01517472 Log Posterior: -409.234  
+Iteration: 9000 Current Beta: 0.02712835 Log Posterior: -407.8688  
+Iteration: 10000 Current Beta: 0.01427902 Log Posterior: -412.1611  </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb45"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a>upgma_temp_max_summary <span class="ot">&lt;-</span> <span class="fu">render_mh_experiment</span>(</span>
+<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">result =</span> upgma_temp_max_result,</span>
+<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">experiment_id =</span> <span class="st">"upgma_temp_max"</span>,</span>
+<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">comparison_matrices =</span> <span class="fu">list</span>(M_true_fmat, upgma_temp_max_result<span class="sc">$</span>average_M),</span>
+<span id="cb45-5"><a href="#cb45-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">comparison_labels =</span> <span class="fu">c</span>(<span class="st">"True M"</span>, <span class="st">"Average M"</span>),</span>
+<span id="cb45-6"><a href="#cb45-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">beast_compare_fmats =</span> beast_compare_fmats,</span>
+<span id="cb45-7"><a href="#cb45-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">coal_times =</span> true_coalescent_times,</span>
+<span id="cb45-8"><a href="#cb45-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">sequences =</span> sequences,</span>
+<span id="cb45-9"><a href="#cb45-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">sub_samp =</span> <span class="dv">1000</span>,</span>
+<span id="cb45-10"><a href="#cb45-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">44</span></span>
+<span id="cb45-11"><a href="#cb45-11" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Rendering experiment outputs for upgma_temp_max </code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-9-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-9-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Proportion of variance captured in 2D: 0.545"</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-9-4.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-9-5.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Running prefix-over-time diagnostics for upgma_temp_max 
+Building prefix summaries for 5 splits.
+Creating prefix MDS comparison against sampleF reference.
+  split 1/5 - prefix end = 2000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0416 ).
+  split 2/5 - prefix end = 4000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.033 ).
+  split 3/5 - prefix end = 6000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0303 ).
+  split 4/5 - prefix end = 8000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0286 ).
+  split 5/5 - prefix end = 10000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0278 ).</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-9-6.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Creating prefix MDS comparison against beast reference.
+  split 1/5 - prefix end = 2000 
+  split 2/5 - prefix end = 4000 
+  split 3/5 - prefix end = 6000 
+  split 4/5 - prefix end = 8000 
+  split 5/5 - prefix end = 10000 </code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-9-7.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-9-8.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in scale_fill_gradient(low = "grey95", high = "darkgreen", trans = "log10", : log-10 transformation introduced infinite values.
+log-10 transformation introduced infinite values.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-9-9.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-9-10.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in scale_fill_gradient(low = "grey95", high = "darkgreen", trans = "log10", : log-10 transformation introduced infinite values.
+log-10 transformation introduced infinite values.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-9-11.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a>upgma_temp1000_max_result <span class="ot">&lt;-</span> <span class="fu">run_joint_mh_experiment</span>(</span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">experiment_id =</span> <span class="st">"upgma_temp1000_max"</span>,</span>
+<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">init_M =</span> M_upgma_fmat,</span>
+<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">coal_times =</span> true_coalescent_times,</span>
+<span id="cb52-5"><a href="#cb52-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">sequences =</span> sequences,</span>
+<span id="cb52-6"><a href="#cb52-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">n_iter =</span> <span class="dv">10000</span>,</span>
+<span id="cb52-7"><a href="#cb52-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">beta_init =</span> <span class="dv">1</span>,</span>
+<span id="cb52-8"><a href="#cb52-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">prior_sd =</span> <span class="dv">1</span>,</span>
+<span id="cb52-9"><a href="#cb52-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">proposal_sd =</span> <span class="fl">0.5</span>,</span>
+<span id="cb52-10"><a href="#cb52-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">lambda =</span> <span class="dv">1000</span>,</span>
+<span id="cb52-11"><a href="#cb52-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">mode =</span> <span class="st">"max"</span>,</span>
+<span id="cb52-12"><a href="#cb52-12" aria-hidden="true" tabindex="-1"></a>  <span class="at">take_every =</span> <span class="dv">1</span></span>
+<span id="cb52-13"><a href="#cb52-13" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Iteration: 1000 Current Beta: 0.01873566 Log Posterior: -98.43329  
+Iteration: 2000 Current Beta: 0.02074087 Log Posterior: -97.22511  
+Iteration: 3000 Current Beta: 0.04223643 Log Posterior: -97.69387  
+Iteration: 4000 Current Beta: 0.01496418 Log Posterior: -98.90427  
+Iteration: 5000 Current Beta: 0.0165808 Log Posterior: -99.30681  
+Iteration: 6000 Current Beta: 0.03499425 Log Posterior: -98.45994  
+Iteration: 7000 Current Beta: 0.05256609 Log Posterior: -97.07282  
+Iteration: 8000 Current Beta: 0.01861842 Log Posterior: -96.47517  
+Iteration: 9000 Current Beta: 0.03114099 Log Posterior: -97.65376  
+Iteration: 10000 Current Beta: 0.0408852 Log Posterior: -96.74562  </code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a>upgma_temp1000_max_summary <span class="ot">&lt;-</span> <span class="fu">render_mh_experiment</span>(</span>
+<span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">result =</span> upgma_temp1000_max_result,</span>
+<span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">experiment_id =</span> <span class="st">"upgma_temp1000_max"</span>,</span>
+<span id="cb54-4"><a href="#cb54-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">comparison_matrices =</span> <span class="fu">list</span>(M_true_fmat, upgma_temp1000_max_result<span class="sc">$</span>average_M),</span>
+<span id="cb54-5"><a href="#cb54-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">comparison_labels =</span> <span class="fu">c</span>(<span class="st">"True M"</span>, <span class="st">"Average M"</span>),</span>
+<span id="cb54-6"><a href="#cb54-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">beast_compare_fmats =</span> beast_compare_fmats,</span>
+<span id="cb54-7"><a href="#cb54-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">coal_times =</span> true_coalescent_times,</span>
+<span id="cb54-8"><a href="#cb54-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">sequences =</span> sequences,</span>
+<span id="cb54-9"><a href="#cb54-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">sub_samp =</span> <span class="dv">1000</span>,</span>
+<span id="cb54-10"><a href="#cb54-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">seed =</span> <span class="dv">44</span></span>
+<span id="cb54-11"><a href="#cb54-11" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Rendering experiment outputs for upgma_temp1000_max </code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-10-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-10-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Proportion of variance captured in 2D: 0.5596"</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-10-4.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-10-5.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Running prefix-over-time diagnostics for upgma_temp1000_max 
+Building prefix summaries for 5 splits.
+Creating prefix MDS comparison against sampleF reference.
+  split 1/5 - prefix end = 2000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0674 ).
+  split 2/5 - prefix end = 4000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0464 ).
+  split 3/5 - prefix end = 6000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0392 ).
+  split 4/5 - prefix end = 8000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0354 ).
+  split 5/5 - prefix end = 10000 
+Generating SampleF reference with 10000 samples (take_every = 10 , beta = 0.0331 ).</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-10-6.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Creating prefix MDS comparison against beast reference.
+  split 1/5 - prefix end = 2000 
+  split 2/5 - prefix end = 4000 
+  split 3/5 - prefix end = 6000 
+  split 4/5 - prefix end = 8000 
+  split 5/5 - prefix end = 10000 </code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-10-7.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-10-8.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in scale_fill_gradient(low = "grey95", high = "darkgreen", trans = "log10", : log-10 transformation introduced infinite values.
+log-10 transformation introduced infinite values.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-10-9.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-10-10.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in scale_fill_gradient(low = "grey95", high = "darkgreen", trans = "log10", : log-10 transformation introduced infinite values.
+log-10 transformation introduced infinite values.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="gibbs_prior_joint_standardized_files/figure-html/unnamed-chunk-10-11.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="summary" class="level2">
+<h2 class="anchored" data-anchor-id="summary">Summary</h2>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb61"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a>experiment_summary <span class="ot">&lt;-</span> <span class="fu">rbind</span>(</span>
+<span id="cb61-2"><a href="#cb61-2" aria-hidden="true" tabindex="-1"></a>  upgma_max_summary,</span>
+<span id="cb61-3"><a href="#cb61-3" aria-hidden="true" tabindex="-1"></a>  true_init_summary,</span>
+<span id="cb61-4"><a href="#cb61-4" aria-hidden="true" tabindex="-1"></a>  mle_init_summary,</span>
+<span id="cb61-5"><a href="#cb61-5" aria-hidden="true" tabindex="-1"></a>  upgma_temp_max_summary,</span>
+<span id="cb61-6"><a href="#cb61-6" aria-hidden="true" tabindex="-1"></a>  upgma_temp1000_max_summary,</span>
+<span id="cb61-7"><a href="#cb61-7" aria-hidden="true" tabindex="-1"></a>  beast_summary</span>
+<span id="cb61-8"><a href="#cb61-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb61-9"><a href="#cb61-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb61-10"><a href="#cb61-10" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(experiment_summary)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>          experiment lambda  beta_mean    beta_sd acceptance_rate_beta
+1          upgma_max      1 0.02410925 0.01852048            0.3556356
+2          true_init      1 0.02563775 0.03018220            0.3614361
+3           mle_init      1 0.02566348 0.02185329            0.3567357
+4     upgma_temp_max    100 0.02780668 0.04639154            0.5449545
+5 upgma_temp1000_max   1000 0.03306662 0.07327281            0.5468547
+6              beast     NA         NA         NA                   NA
+  acceptance_rate_M average_M_distance_to_true
+1         0.3895390                   20.88061
+2         0.3863386                   20.83267
+3         0.3902390                   21.16601
+4         0.6334633                   20.27313
+5         0.6332633                   21.47091
+6                NA                   17.14643</code></pre>
+</div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb63"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb63-1"><a href="#cb63-1" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(</span>
+<span id="cb63-2"><a href="#cb63-2" aria-hidden="true" tabindex="-1"></a>  experiment_summary,</span>
+<span id="cb63-3"><a href="#cb63-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">file =</span> <span class="fu">file.path</span>(output_root, <span class="st">"experiment_summary.csv"</span>),</span>
+<span id="cb63-4"><a href="#cb63-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">row.names =</span> <span class="cn">FALSE</span></span>
+<span id="cb63-5"><a href="#cb63-5" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb63-6"><a href="#cb63-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb63-7"><a href="#cb63-7" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(</span>
+<span id="cb63-8"><a href="#cb63-8" aria-hidden="true" tabindex="-1"></a>  experiment_summary,</span>
+<span id="cb63-9"><a href="#cb63-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">file =</span> <span class="fu">file.path</span>(output_root, <span class="st">"experiment_summary.rds"</span>)</span>
+<span id="cb63-10"><a href="#cb63-10" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

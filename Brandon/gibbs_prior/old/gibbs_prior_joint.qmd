@@ -1,0 +1,676 @@
+---
+title: "Gibbs Prior Joint"
+format: html
+editor: visual
+---
+
+# Setup
+
+```{r}
+setwd("/Users/brandonmarks/Desktop/Research/Palacios Lab/Untitled/Enertree/Brandon/gibbs_prior")
+library("ape")
+library("phylodyn")
+library(phangorn)
+library(phyclust)
+library(phylotools)
+library(fmatrix)
+library(phangorn)
+library(coda)
+source("utils.R")
+```
+
+## Core Functions
+
+```{r}
+
+log_posterior_joint <- function(beta, M, coal_times, prior_sd, lambda = 1, start_tree = NULL, mode = "average") {
+  tree_fmat <- sampleF(M, beta, iter = 2, diam = 1, startF = start_tree, take_every = 1)$chainF[[2]] ##SHOULD THIS RUN WHEN WE SAMOPLE M
+
+  log_botlzman_dist <- Logdistance_prob(tree_fmat, M, beta = beta, diam = 1)
+  if (mode == "average") {
+    log_likelihood <- 0
+  } else if (mode == "max") {
+    log_likelihood <- -Inf
+  } else {
+    stop("Invalid mode. Choose 'average' or 'max'.")
+  }
+
+  R <- 10
+  for (i in 1:R) {
+    rooted_tree <- mytree_from_F(tree_fmat, coal_times)
+    ll <- pml(rooted_tree, sequences)$log
+    if (mode == "average") {
+      log_likelihood <- log_likelihood + ll
+    } else {
+      log_likelihood <- max(log_likelihood, ll)
+    }
+  }
+  if (mode == "average") {
+    log_likelihood <- log_likelihood / R
+  }
+
+  n_tips <- ncol(M_true_fmat) + 1
+  log_rooted_given_unrooted <- log(2^(num_cherries(tree_fmat)) / factorial(n_tips))
+  log_prior <- dnorm(log(beta), mean = 0, sd = prior_sd, log = TRUE)
+  log_posterior <- log_likelihood / lambda + log_rooted_given_unrooted + log_botlzman_dist + log_prior
+
+  list(log_posterior = log_posterior, tree_fmat = tree_fmat)
+}
+```
+
+```{r}
+run_mh_beta_M <- function(
+  M_init,
+  beta_init,
+  prior_sd,
+  n_iter,
+  coal_times,
+  proposal_sd,
+  lambda = 1,
+  mode = "average",
+  include_tree = FALSE,
+  take_every = 1000
+) {
+  beta_chain <- numeric(n_iter)
+  log_post_chain <- numeric(n_iter)
+  M_chain <- vector("list", ceiling(n_iter / take_every))
+  tree_chain <- vector("list", ceiling(n_iter / take_every))
+
+  accepted_beta <- 0
+  accepted_M <- 0
+
+  current_beta <- beta_init
+  current_g <- log(current_beta)
+  current_M <- M_init
+
+  current_res <- log_posterior_joint(
+    current_beta, current_M, coal_times, prior_sd,
+    lambda = lambda, start_tree = current_M, mode = mode
+  )
+  current_log_post <- current_res$log_posterior
+  current_tree <- current_res$tree_fmat
+
+  best_log_post <- current_log_post
+  best_beta <- current_beta
+  best_M <- current_M
+  best_tree <- current_tree
+
+  beta_chain[1] <- current_beta
+  log_post_chain[1] <- current_log_post
+  M_chain[[1]] <- current_M
+  if (include_tree) {
+    tree_chain[[1]] <- current_tree
+  }
+
+  for (iter in 2:n_iter) {
+    proposed_g <- rnorm(1, mean = current_g, sd = proposal_sd)
+    proposed_beta <- exp(proposed_g)
+
+    beta_res <- log_posterior_joint(
+      proposed_beta, current_M, coal_times, prior_sd,
+      lambda = lambda, start_tree = current_tree, mode = mode
+    )
+    proposed_log_post <- beta_res$log_posterior
+
+    if (log(runif(1)) < (proposed_log_post - current_log_post)) {
+      current_beta <- proposed_beta
+      current_g <- proposed_g
+      current_log_post <- proposed_log_post
+      current_tree <- beta_res$tree_fmat
+      accepted_beta <- accepted_beta + 1
+    }
+
+    current_encod <- my_encod(current_M)
+    proposed_M <- Fmat_from_myencod(proposal_myencod(current_encod))
+    M_res <- log_posterior_joint(
+      current_beta, proposed_M, coal_times, prior_sd,
+      lambda = lambda, start_tree = current_tree, mode = mode
+    )
+    proposed_log_post_M <- M_res$log_posterior
+
+    if (log(runif(1)) < (proposed_log_post_M - current_log_post)) {
+      current_M <- proposed_M
+      current_log_post <- proposed_log_post_M
+      current_tree <- M_res$tree_fmat
+      accepted_M <- accepted_M + 1
+    }
+
+    if (current_log_post > best_log_post) {
+      best_log_post <- current_log_post
+      best_beta <- current_beta
+      best_M <- current_M
+      best_tree <- current_tree
+    }
+
+    beta_chain[iter] <- current_beta
+    log_post_chain[iter] <- current_log_post
+
+    if (iter %% take_every == 0) {
+      slot <- iter / take_every
+      M_chain[[slot]] <- current_M
+      if (include_tree) {
+        tree_chain[[slot]] <- current_tree
+      }
+    }
+
+    per10 <- max(1, floor(n_iter / 10))
+    if (iter %% per10 == 0) {
+      cat("Iteration:", iter, "Current Beta:", current_beta, "Log Posterior:", current_log_post, "\n")
+    }
+  }
+
+  out <- list(
+    beta_chain = beta_chain,
+    log_posterior = log_post_chain,
+    M_chain = M_chain,
+    best_beta = best_beta,
+    best_M = best_M,
+    best_tree = best_tree,
+    acceptance_rate_beta = accepted_beta / (n_iter - 1),
+    acceptance_rate_M = accepted_M / (n_iter - 1)
+  )
+
+  valid_M_chain <- Filter(Negate(is.null), M_chain)
+  if (length(valid_M_chain) > 0) {
+    average_M_raw <- Reduce(`+`, valid_M_chain) / length(valid_M_chain)
+    out$average_M_raw <- average_M_raw
+    out$average_M <- nearby_Fmat(average_M_raw)
+  } else {
+    out$average_M_raw <- NULL
+    out$average_M <- NULL
+  }
+
+  if (include_tree) {
+    out$tree_chain <- tree_chain
+  }
+
+  out
+}
+```
+
+## Data And Reference Objects
+
+```{r}
+n_tips <- 25
+set.seed(123)
+sequences <- as.phyDat(read.FASTA("sequences.fasta"))
+
+M_true_tree <- read.tree("true_tree.newick")
+inter_coal_times <- coalescent.intervals(M_true_tree)$interval.length
+inter_coal_times[which(inter_coal_times <= 0.000001)] <- 0.0000001
+true_coalescent_times <- cumsum(inter_coal_times)
+M_true_fmat <- gen_Fmat(M_true_tree, tol = 8)
+```
+
+### UPGMA Reference
+
+```{r}
+dm <- dist.hamming(sequences)
+upgma_tree <- upgma(dm)
+upgma_tree <- update_time(upgma_tree, true_coalescent_times)
+M_upgma_fmat <- gen_Fmat(upgma_tree, tol = 8)
+```
+
+### MLE Reference
+
+```{r}
+# Step 2: Compute a fully bifurcating starting tree (Neighbor-Joining)
+dm <- dist.hamming(sequences)
+start_tree <- nj(dm)
+start_tree <- midpoint(start_tree)
+start_tree <- multi2di(start_tree, random = FALSE)
+
+# Step 3: Fit initial likelihood
+fit <- pml(start_tree, data = sequences)
+
+# Step 4: Optimize tree with MLE under strict clock
+fit <- optim.pml(fit, model = "JC", rearrangement = "stochastic", optClock = TRUE)
+
+# Step 5: Extract and repair the MLE tree
+mle_tree <- fit$tree
+mle_tree <- midpoint(mle_tree)
+mle_tree <- multi2di(mle_tree, random = FALSE)
+mle_tree <- update_time(mle_tree, true_coalescent_times)
+min_branch <- 1e-8
+mle_tree$edge.length[mle_tree$edge.length < min_branch] <- min_branch
+
+M_mle_fmat <- gen_Fmat(mle_tree, tol = 8)
+```
+
+## Joint Chain (UPGMA Init)
+
+```{r}
+res_joint <- run_mh_beta_M(
+  M_init = M_upgma_fmat,
+  beta_init = 1,
+  prior_sd = 1,
+  n_iter = 10000,
+  coal_times = true_coalescent_times,
+  proposal_sd = 0.5,
+  lambda = 1,
+  include_tree = TRUE,
+  mode = "max",
+  take_every = 1
+)
+
+beta_chain_joint <- res_joint$beta_chain
+hist(beta_chain_joint, breaks = 30, main = "Posterior of Beta (Joint Max Mode)", xlab = "Beta")
+```
+
+```{r}
+best_M_tree <- res_joint$best_M
+joint_avg_M <- res_joint$average_M
+print(distance_Fmat(best_M_tree, M_true_fmat))
+print(distance_Fmat(joint_avg_M, M_true_fmat))
+```
+
+## Joint Chain (True M Init)
+
+```{r}
+res_joint_true <- run_mh_beta_M(
+  M_init = M_true_fmat,
+  beta_init = 1,
+  prior_sd = 1,
+  n_iter = 10000,
+  coal_times = true_coalescent_times,
+  proposal_sd = 0.5,
+  lambda = 1,
+  include_tree = TRUE,
+  mode = "max",
+  take_every = 1
+)
+
+beta_chain_joint_true <- res_joint_true$beta_chain
+hist(beta_chain_joint_true, breaks = 30, main = "Posterior of Beta (Joint Max Mode, True M Init)", xlab = "Beta")
+```
+
+## Shared BEAST Reference Samples
+
+```{r}
+library(progress)
+trees_beast <- read.nexus("HKY1000Gibbs-sequences.trees")
+N <- 10000
+F.list <- vector("list", N)
+pb <- progress_bar$new("[:bar] :percent", total = N)
+for (i in 1:N) {
+  name <- names(trees_beast)[i]
+  pb$tick()
+  F.list[[i]] <- gen_Fmat(trees_beast[[name]], tol = 8)
+}
+```
+
+## Shared Subsampling
+
+```{r}
+burn_in <- 50
+sub_samp <- 1000
+chain_gen <- res_joint$tree_chain
+
+burn_in <- min(burn_in, length(chain_gen) - 1)
+chain_gen <- chain_gen[(burn_in + 1):length(chain_gen)]
+
+set.seed(42)
+chain_data <- F.list
+idx <- sample(length(chain_data), sub_samp)
+trees_data <- chain_data[idx]
+
+idx <- sample(length(chain_gen), sub_samp)
+trees_gen <- chain_gen[idx]
+```
+
+```{r}
+burn_in_true <- 50
+chain_gen_true <- res_joint_true$tree_chain
+
+burn_in_true <- min(burn_in_true, length(chain_gen_true) - 1)
+chain_gen_true <- chain_gen_true[(burn_in_true + 1):length(chain_gen_true)]
+
+sub_samp_true <- min(sub_samp, length(chain_gen_true), length(trees_data))
+set.seed(43)
+idx <- sample(length(chain_gen_true), sub_samp_true)
+trees_gen_true <- chain_gen_true[idx]
+```
+
+## UPGMA Init Diagnostics
+
+```{r}
+tree_MDS_comparison_plot(
+  trees_gen,
+  trees_data,
+  M_true_fmat,
+  M_tree = best_M_tree,
+  title = "Joint MDS UPGMA Comparison (MAX MODE)",
+  save_path = "Joint_MDS_UPGMA_comparison_max_mode.png"
+)
+```
+
+```{r}
+tree_MDS_comparison_plot(
+  trees_gen,
+  trees_data,
+  M_true_fmat,
+  M_tree = joint_avg_M,
+  title = "Joint MDS UPGMA Comparison (MAX MODE, Avg M)",
+  save_path = "Joint_MDS_UPGMA_comparison_avg_m.png"
+)
+```
+
+```{r}
+matrix_MDS_comparison_plot(
+  matrices = list(M_true_fmat, res_joint$average_M, res_joint$best_M),
+  labels = c("True M", "Average M", "Max M"),
+  chain_matrices = res_joint$tree_chain,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  color_by_log_likelihood = TRUE,
+  sub_samp = 1000,
+  seed = 44,
+  title = "UPGMA MDS Log Likelihood Comparison",
+  save_path = "Joint_MDS_UPGMA_log_likelihood_comparison.png"
+)
+```
+
+```{r}
+matrix_MDS_comparison_plot(
+  matrices = list(M_true_fmat, res_joint$average_M, res_joint$best_M),
+  labels = c("True M", "Average M", "Max M"),
+  chain_matrices = res_joint$M_chain,
+  sub_samp = 1000,
+  seed = 44,
+  title = "UPGMA MDS Comparison: True vs Average vs Max M",
+  save_path = "Joint_MDS_UPGMA_comparison_true_average_max.png"
+)
+```
+
+### ESS Diagnostics
+
+```{r}
+matrix_chain_ess_heatmap(
+  res_joint$M_chain,
+  title = "UPGMA ESS Heatmap for M Chain",
+  save_path = "Joint_UPGMA_M_chain_ESS_heatmap.png"
+)
+```
+
+```{r}
+matrix_chain_ess_heatmap(
+  res_joint$tree_chain,
+  normalize = TRUE,
+  per_n_samples = 1000,
+  title = "UPGMA ESS per 1000 Samples for Tree Chain",
+  save_path = "Joint_UPGMA_tree_chain_ESS_per_1000_heatmap.png"
+)
+```
+
+## BEAST ESS Reference
+
+```{r}
+library(progress)
+trees_beast_all <- read.nexus("100THOUSANDTREES-sequences.trees")
+N <- 100000
+ALLTREES <- vector("list", N)
+pb <- progress_bar$new("[:bar] :percent", total = N)
+for (i in 1:N) {
+  name <- names(trees_beast_all)[i]
+  pb$tick()
+  ALLTREES[[i]] <- gen_Fmat(trees_beast_all[[name]], tol = 8)
+}
+```
+
+```{r}
+matrix_chain_ess_heatmap(
+ ALLTREES,
+   title = "ESS Heatmap for BEAST Trees",
+  save_path = "Joint_BEAST_ESS_heatmap.png"
+)
+```
+
+```{r}
+matrix_chain_ess_heatmap(
+  ALLTREES,
+  normalize = TRUE,
+  per_n_samples = 1000,
+  title = "ESS per 1000 Samples for BEAST",
+  save_path = "Joint_BEAST_ESS_per_1000_heatmap.png"
+)
+```
+
+## Histogram And True-Init Comparisons
+
+```{r}
+tree_histogram_comparison_plot(
+  chain_gen,
+  chain_data,
+  M_true_fmat,
+  title = "UPGMA Joint Histogram Comparison (MAX MODE)",
+  save_path = "Joint_UPGMA_Histogram_comparison_max_mode.png"
+)
+```
+
+```{r}
+tree_MDS_comparison_plot(
+  trees_gen_true,
+  trees_data,
+  M_true_fmat,
+  M_tree = M_true_fmat,
+  title = "Joint MDS Comparison (MAX MODE, True M Init)",
+  save_path = "Joint_MDS_comparison_true_init.png"
+)
+```
+
+```{r}
+tree_histogram_comparison_plot(
+  chain_gen_true,
+  chain_data,
+  M_true_fmat,
+  title = "Joint Histogram Comparison (MAX MODE, True M Init)",
+  save_path = "Joint_Histogram_comparison_true_init.png"
+)
+```
+
+## Joint Chain (MLE Init)
+
+```{r}
+res_joint_mle <- run_mh_beta_M(
+  M_init = M_mle_fmat,
+  beta_init = 1,
+  prior_sd = 1,
+  n_iter = 10000,
+  coal_times = true_coalescent_times,
+  proposal_sd = 0.5,
+  lambda = 1,
+  include_tree = TRUE,
+  mode = "max",
+  take_every = 1
+)
+
+beta_chain_joint_mle <- res_joint_mle$beta_chain
+hist(beta_chain_joint_mle, breaks = 30, main = "Posterior of Beta (Joint Max Mode, MLE Init)", xlab = "Beta")
+```
+
+```{r}
+best_M_tree_mle <- res_joint_mle$best_M
+joint_avg_M_mle <- res_joint_mle$average_M
+print(distance_Fmat(best_M_tree_mle, M_true_fmat))
+print(distance_Fmat(joint_avg_M_mle, M_true_fmat))
+```
+
+### MLE Init Subsampling
+
+```{r}
+burn_in_mle <- 50
+chain_gen_mle <- res_joint_mle$tree_chain
+
+burn_in_mle <- min(burn_in_mle, length(chain_gen_mle) - 1)
+chain_gen_mle <- chain_gen_mle[(burn_in_mle + 1):length(chain_gen_mle)]
+
+sub_samp_mle <- min(sub_samp, length(chain_gen_mle), length(trees_data))
+set.seed(45)
+idx <- sample(length(chain_gen_mle), sub_samp_mle)
+trees_gen_mle <- chain_gen_mle[idx]
+```
+
+### MLE Init Diagnostics
+
+```{r}
+tree_MDS_comparison_plot(
+  trees_gen_mle,
+  trees_data,
+  M_true_fmat,
+  M_tree = best_M_tree_mle,
+  title = "Joint MDS Comparison (MAX MODE, MLE Init)",
+  save_path = "Joint_MLE_init_MDS_comparison_max_mode.png"
+)
+```
+
+```{r}
+tree_MDS_comparison_plot(
+  trees_gen_mle,
+  trees_data,
+  M_true_fmat,
+  M_tree = joint_avg_M_mle,
+  title = "Joint MDS Comparison (MAX MODE, MLE Init, Avg M)",
+  save_path = "Joint_MLE_init_MDS_comparison_avg_m.png"
+)
+```
+
+```{r}
+matrix_MDS_comparison_plot(
+  matrices = list(M_true_fmat, res_joint_mle$average_M, res_joint_mle$best_M),
+  labels = c("True M", "Average M", "Max M"),
+  chain_matrices = res_joint_mle$M_chain,
+  sub_samp = 1000,
+  seed = 46,
+  title = "MDS Comparison: True vs Average vs Max M (MLE Init)",
+  save_path = "Joint_MLE_init_MDS_true_average_max.png"
+)
+```
+
+### MLE Init ESS Diagnostics
+
+```{r}
+matrix_chain_ess_heatmap(
+  res_joint_mle$M_chain,
+  title = "ESS Heatmap for M Chain (MLE Init)",
+  save_path = "Joint_MLE_init_M_chain_ESS_heatmap.png"
+)
+```
+
+```{r}
+matrix_chain_ess_heatmap(
+  res_joint_mle$tree_chain,
+  normalize = TRUE,
+  per_n_samples = 1000,
+  title = "ESS per 1000 Samples for Tree Chain (MLE Init)",
+  save_path = "Joint_MLE_init_tree_chain_ESS_per_1000_heatmap.png"
+)
+```
+
+### MLE Init Histogram Comparison
+
+```{r}
+tree_histogram_comparison_plot(
+  chain_gen_mle,
+  chain_data,
+  M_true_fmat,
+  title = "Joint Histogram Comparison (MAX MODE, MLE Init)",
+  save_path = "Joint_MLE_init_Histogram_comparison_max_mode.png"
+)
+```
+
+## Joint Chain (UPGMA Temperature)
+
+```{r}
+res_joint_temp <- run_mh_beta_M(
+  M_init = M_upgma_fmat,
+  beta_init = 1,
+  prior_sd = 1,
+  n_iter = 10000,
+  coal_times = true_coalescent_times,
+  proposal_sd = 0.5,
+  lambda = 10,
+  include_tree = TRUE,
+  mode = "max",
+  take_every = 1
+)
+
+beta_chain_joint_temp <- res_joint_temp$beta_chain
+hist(beta_chain_joint_temp, breaks = 30, main = "Posterior of Beta (Joint Max Mode)", xlab = "Beta")
+```
+
+```{r}
+best_M_tree_temp <- res_joint_temp$best_M
+joint_avg_M_temp <- res_joint_temp$average_M
+print(distance_Fmat(best_M_tree_temp, M_true_fmat))
+print(distance_Fmat(joint_avg_M_temp, M_true_fmat))
+```
+
+## Shared Subsampling
+
+```{r}
+burn_in <- 50
+sub_samp <- 1000
+chain_gen_temp <- res_joint_temp$tree_chain
+
+burn_in <- min(burn_in, length(chain_gen_temp) - 1)
+chain_gen_temp <- chain_gen_temp[(burn_in + 1):length(chain_gen_temp)]
+
+idx <- sample(length(chain_gen_temp), sub_samp)
+trees_gen_temp <- chain_gen_temp[idx]
+```
+
+## UPGMA Init Diagnostics
+
+```{r}
+tree_MDS_comparison_plot(
+  trees_gen_temp,
+  trees_data,
+  M_true_fmat,
+  M_tree = best_M_tree_temp,
+  title = "Joint MDS UPGMA Temperature Comparison (MAX MODE)",
+  save_path = "Joint_MDS_UPGMA_Temperature_comparison_max_mode.png"
+)
+```
+
+```{r}
+tree_MDS_comparison_plot(
+  trees_gen_temp,
+  trees_data,
+  M_true_fmat,
+  M_tree = joint_avg_M_temp,
+  title = "Joint MDS UPGMA Temperature Comparison (MAX MODE, Avg M)",
+  save_path = "Joint_MDS_UPGMA_Temperature_comparison_avg_m.png"
+)
+```
+
+```{r}
+matrix_MDS_comparison_plot(
+  matrices = list(M_true_fmat, res_joint$average_M, res_joint$best_M),
+  labels = c("True M", "Average M", "Max M"),
+  chain_matrices = res_joint_temp$M_chain,
+  sub_samp = 1000,
+  seed = 44,
+  title = "UPGMA MDS Temperature Comparison: True vs Average vs Max M",
+  save_path = "Joint_MDS_UPGMA_Temperature_comparison_true_average_max.png"
+)
+```
+
+### ESS Diagnostics
+
+```{r}
+matrix_chain_ess_heatmap(
+  res_joint_temp$M_chain,
+  title = "UPGMA Temperature ESS Heatmap for M Chain",
+  save_path = "Joint_UPGMA_Temperature_M_chain_ESS_heatmap.png"
+)
+```
+
+```{r}
+matrix_chain_ess_heatmap(
+  res_joint_temp$tree_chain,
+  normalize = TRUE,
+  per_n_samples = 1000,
+  title = "UPGMA Temperature ESS per 1000 Samples for Tree Chain",
+  save_path = "Joint_UPGMA_Temperature_tree_chain_ESS_per_1000_heatmap.png"
+)
+```

@@ -1,0 +1,428 @@
+---
+title: "Gibbs Prior Log Z Comparison"
+format: html
+editor: visual
+---
+
+# Setup
+
+```{r}
+setwd("/Users/brandonmarks/Desktop/Research/Palacios Lab/Untitled/Enertree/Brandon/gibbs_prior")
+
+library(ape)
+library(phylodyn)
+library(phangorn)
+library(phyclust)
+library(phylotools)
+library(fmatrix)
+library(coda)
+library(ggplot2)
+
+source("utils.R")
+
+output_root <- file.path("plots", "logZ_comparison")
+dir.create(output_root, recursive = TRUE, showWarnings = FALSE)
+source("gibbs_prior_joint_standardized_helpers.R")
+
+annotate_summary <- function(summary_df, sampler_type, init_type, include_log_Z) {
+  summary_df$sampler_type <- sampler_type
+  summary_df$init_type <- init_type
+  summary_df$include_log_Z <- include_log_Z
+  summary_df
+}
+```
+
+## Shared Data
+
+```{r}
+n_tips <- 25
+set.seed(123)
+
+sequences <- as.phyDat(read.FASTA("sequences.fasta"))
+
+M_true_tree <- read.tree("true_tree.newick")
+inter_coal_times <- coalescent.intervals(M_true_tree)$interval.length
+inter_coal_times[which(inter_coal_times <= 0.000001)] <- 0.0000001
+true_coalescent_times <- cumsum(inter_coal_times)
+M_true_fmat <- gen_Fmat(M_true_tree, tol = 8)
+```
+
+### Reference Matrices
+
+```{r}
+dm <- dist.hamming(sequences)
+
+upgma_tree <- upgma(dm)
+upgma_tree <- update_time(upgma_tree, true_coalescent_times)
+M_upgma_fmat <- gen_Fmat(upgma_tree, tol = 8)
+```
+
+### BEAST Reference Data
+
+```{r}
+trees_beast_compare <- read.nexus("HKY1000Gibbs-sequences.trees")
+beast_compare_fmats <- lapply(trees_beast_compare, gen_Fmat, tol = 8)
+```
+
+### Shared Log Z Cache
+
+```{r}
+uniform_tree_cache <- generate_proposal_tree_chain_cache(
+  n_trees = 100000,
+  n_tips = n_tips
+)
+```
+
+# Joint Standardized
+
+## UPGMA Init, Log Z = TRUE
+
+```{r}
+joint_upgma_logZ_true_result <- run_joint_mh_experiment(
+  experiment_id = "joint_upgma_logZ_true",
+  init_M = M_upgma_fmat,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  n_iter = 10000,
+  beta_init = 1,
+  sample_beta = TRUE,
+  prior_sd = 1,
+  proposal_sd = 0.5,
+  lambda = 1,
+  mode = "max",
+  take_every = 1,
+  include_log_Z = TRUE,
+  uniform_tree_cache = uniform_tree_cache
+)
+
+joint_upgma_logZ_true_summary <- annotate_summary(
+  render_mh_experiment(
+    result = joint_upgma_logZ_true_result,
+    experiment_id = "joint_upgma_logZ_true",
+    comparison_matrices = list(M_true_fmat, joint_upgma_logZ_true_result$average_M),
+    comparison_labels = c("True M", "Average M"),
+    beast_compare_fmats = beast_compare_fmats,
+    coal_times = true_coalescent_times,
+    sequences = sequences,
+    sub_samp = 1000,
+    seed = 44
+  ),
+  sampler_type = "joint",
+  init_type = "upgma",
+  include_log_Z = TRUE
+)
+```
+
+## UPGMA Init, Log Z = FALSE
+
+```{r}
+joint_upgma_logZ_false_result <- run_joint_mh_experiment(
+  experiment_id = "joint_upgma_logZ_false",
+  init_M = M_upgma_fmat,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  n_iter = 10000,
+  beta_init = 1,
+  sample_beta = TRUE,
+  prior_sd = 1,
+  proposal_sd = 0.5,
+  lambda = 1,
+  mode = "max",
+  take_every = 1,
+  include_log_Z = FALSE,
+  uniform_tree_cache = uniform_tree_cache
+)
+
+joint_upgma_logZ_false_summary <- annotate_summary(
+  render_mh_experiment(
+    result = joint_upgma_logZ_false_result,
+    experiment_id = "joint_upgma_logZ_false",
+    comparison_matrices = list(M_true_fmat, joint_upgma_logZ_false_result$average_M),
+    comparison_labels = c("True M", "Average M"),
+    beast_compare_fmats = beast_compare_fmats,
+    coal_times = true_coalescent_times,
+    sequences = sequences,
+    sub_samp = 1000,
+    seed = 45
+  ),
+  sampler_type = "joint",
+  init_type = "upgma",
+  include_log_Z = FALSE
+)
+```
+
+## True Init, Log Z = TRUE
+
+```{r}
+joint_true_init_logZ_true_result <- run_joint_mh_experiment(
+  experiment_id = "joint_true_init_logZ_true",
+  init_M = M_true_fmat,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  n_iter = 10000,
+  beta_init = 1,
+  sample_beta = TRUE,
+  prior_sd = 1,
+  proposal_sd = 0.5,
+  lambda = 1,
+  mode = "max",
+  take_every = 1,
+  include_log_Z = TRUE,
+  uniform_tree_cache = uniform_tree_cache
+)
+
+joint_true_init_logZ_true_summary <- annotate_summary(
+  render_mh_experiment(
+    result = joint_true_init_logZ_true_result,
+    experiment_id = "joint_true_init_logZ_true",
+    comparison_matrices = list(M_true_fmat, joint_true_init_logZ_true_result$average_M),
+    comparison_labels = c("True M", "Average M"),
+    beast_compare_fmats = beast_compare_fmats,
+    coal_times = true_coalescent_times,
+    sequences = sequences,
+    sub_samp = 1000,
+    seed = 46
+  ),
+  sampler_type = "joint",
+  init_type = "true_init",
+  include_log_Z = TRUE
+)
+```
+
+## True Init, Log Z = FALSE
+
+```{r}
+joint_true_init_logZ_false_result <- run_joint_mh_experiment(
+  experiment_id = "joint_true_init_logZ_false",
+  init_M = M_true_fmat,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  n_iter = 10000,
+  beta_init = 1,
+  sample_beta = TRUE,
+  prior_sd = 1,
+  proposal_sd = 0.5,
+  lambda = 1,
+  mode = "max",
+  take_every = 1,
+  include_log_Z = FALSE,
+  uniform_tree_cache = uniform_tree_cache
+)
+
+joint_true_init_logZ_false_summary <- annotate_summary(
+  render_mh_experiment(
+    result = joint_true_init_logZ_false_result,
+    experiment_id = "joint_true_init_logZ_false",
+    comparison_matrices = list(M_true_fmat, joint_true_init_logZ_false_result$average_M),
+    comparison_labels = c("True M", "Average M"),
+    beast_compare_fmats = beast_compare_fmats,
+    coal_times = true_coalescent_times,
+    sequences = sequences,
+    sub_samp = 1000,
+    seed = 47
+  ),
+  sampler_type = "joint",
+  init_type = "true_init",
+  include_log_Z = FALSE
+)
+```
+
+# Mean Updated
+
+## UPGMA Init, Log Z = FALSE
+
+```{r}
+mean_upgma_logZ_false_result <- run_mean_mh_experiment(
+  experiment_id = "mean_upgma_logZ_false",
+  init_M = M_upgma_fmat,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  update_time = 500,
+  n_iter = 100000,
+  beta = 0.1,
+  sample_beta = TRUE,
+  prior_sd = 1,
+  proposal_sd = 0.5,
+  lambda = 1,
+  mode = "max",
+  take_every = 1,
+  include_log_Z = FALSE,
+  uniform_tree_cache = uniform_tree_cache
+)
+
+mean_upgma_logZ_false_summary <- annotate_summary(
+  render_mh_experiment(
+    result = mean_upgma_logZ_false_result,
+    experiment_id = "mean_upgma_logZ_false",
+    comparison_matrices = list(M_true_fmat, nearby_Fmat(mean_upgma_logZ_false_result$average_M)),
+    comparison_labels = c("True M", "Average M"),
+    beast_compare_fmats = beast_compare_fmats,
+    coal_times = true_coalescent_times,
+    sequences = sequences,
+    sub_samp = 1000,
+    seed = 49
+  ),
+  sampler_type = "mean",
+  init_type = "upgma",
+  include_log_Z = FALSE
+)
+```
+
+## True Init, Log Z = FALSE
+
+```{r}
+mean_true_init_logZ_false_result <- run_mean_mh_experiment(
+  experiment_id = "mean_true_init_logZ_false",
+  init_M = M_true_fmat,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  update_time = 1000,
+  n_iter = 10000,
+  beta = 0.1,
+  sample_beta = TRUE,
+  prior_sd = 1,
+  proposal_sd = 0.5,
+  lambda = 1,
+  mode = "max",
+  take_every = 1,
+  include_log_Z = FALSE,
+  uniform_tree_cache = uniform_tree_cache
+)
+
+mean_true_init_logZ_false_summary <- annotate_summary(
+  render_mh_experiment(
+    result = mean_true_init_logZ_false_result,
+    experiment_id = "mean_true_init_logZ_false",
+    comparison_matrices = list(M_true_fmat, nearby_Fmat(mean_true_init_logZ_false_result$average_M)),
+    comparison_labels = c("True M", "Average M"),
+    beast_compare_fmats = beast_compare_fmats,
+    coal_times = true_coalescent_times,
+    sequences = sequences,
+    sub_samp = 1000,
+    seed = 51
+  ),
+  sampler_type = "mean",
+  init_type = "true_init",
+  include_log_Z = FALSE
+)
+```
+
+# BEAST Reference
+
+```{r}
+trees_beast_ess <- read.nexus("100THOUSANDTREES-sequences.trees")
+beast_ess_fmats <- lapply(trees_beast_ess, gen_Fmat, tol = 8)
+
+beast_uniform_mds_sub_samp <- min(1000, length(beast_ess_fmats))
+set.seed(52)
+beast_uniform_idx <- sample(length(beast_ess_fmats), beast_uniform_mds_sub_samp)
+beast_uniform_beast_fmats <- beast_ess_fmats[beast_uniform_idx]
+
+uniform_ess_encodings <- rEncod(
+  m = beast_uniform_mds_sub_samp,
+  n = n_tips,
+  distr = "uniform"
+)
+uniform_ess_fmats <- lapply(uniform_ess_encodings, Fmat_from_myencod)
+
+beast_uniform_mds_fmats <- c(beast_uniform_beast_fmats, uniform_ess_fmats)
+beast_uniform_mds_labels <- c(
+  rep("BEAST", length(beast_uniform_beast_fmats)),
+  rep("Uniform", length(uniform_ess_fmats))
+)
+
+beast_uniform_mds_colors <- c("BEAST" = "steelblue", "Uniform" = "tomato")
+
+beast_uniform_mds_D <- matrix(0, length(beast_uniform_mds_fmats), length(beast_uniform_mds_fmats))
+for (i in 2:length(beast_uniform_mds_fmats)) {
+  for (j in 1:(i - 1)) {
+    beast_uniform_mds_D[i, j] <- distance_Fmat(
+      beast_uniform_mds_fmats[[i]],
+      beast_uniform_mds_fmats[[j]],
+      dist = "l2"
+    )^2
+    beast_uniform_mds_D[j, i] <- beast_uniform_mds_D[i, j]
+  }
+}
+
+beast_uniform_mds <- cmdscale(as.dist(beast_uniform_mds_D), k = 2, eig = TRUE)
+beast_uniform_coords <- as.data.frame(beast_uniform_mds$points)
+colnames(beast_uniform_coords) <- c("Dim1", "Dim2")
+beast_uniform_coords$group <- factor(beast_uniform_mds_labels, levels = c("BEAST", "Uniform"))
+
+p_beast_uniform <- ggplot(beast_uniform_coords, aes(x = Dim1, y = Dim2, color = group)) +
+  geom_point(alpha = 0.7, size = 1.8) +
+  scale_color_manual(values = beast_uniform_mds_colors) +
+  labs(
+    title = "BEAST Trees vs Uniform F Matrices",
+    x = "MDS 1",
+    y = "MDS 2",
+    color = "Group"
+  ) +
+  theme_minimal(base_size = 14)
+
+print(p_beast_uniform)
+make_experiment_dirs("beast_uniform_mds")
+ggsave(
+  filename = paste0("plots/", save_path_for("beast_uniform_mds", "beast_vs_uniform_mds.png")),
+  plot = p_beast_uniform,
+  width = 8,
+  height = 6,
+  dpi = 150
+)
+
+beast_summary <- annotate_summary(
+  render_beast_experiment(
+    beast_fmats = beast_compare_fmats,
+    experiment_id = "beast",
+    coal_times = true_coalescent_times,
+    sequences = sequences,
+    sub_samp = 1000,
+    seed = 47
+  ),
+  sampler_type = "beast_reference",
+  init_type = "beast",
+  include_log_Z = NA
+)
+
+matrix_chain_ess_heatmap(
+  beast_ess_fmats,
+  title = "beast: BEAST Unsampled ESS",
+  save_path = save_path_for("beast", "unsampled_ess.png")
+)
+
+matrix_chain_ess_heatmap(
+  beast_ess_fmats,
+  normalize = TRUE,
+  per_n_samples = 1000,
+  title = "beast: BEAST Unsampled ESS per 1000 samples",
+  save_path = save_path_for("beast", "unsampled_ess_per_1000.png")
+)
+```
+
+# Summary
+
+```{r}
+experiment_summary <- rbind(
+  joint_upgma_logZ_true_summary,
+  joint_upgma_logZ_false_summary,
+  joint_true_init_logZ_true_summary,
+  joint_true_init_logZ_false_summary,
+  mean_upgma_logZ_false_summary,
+  mean_true_init_logZ_false_summary,
+  beast_summary
+)
+
+print(experiment_summary)
+
+write.csv(
+  experiment_summary,
+  file = file.path(output_root, "experiment_summary.csv"),
+  row.names = FALSE
+)
+
+saveRDS(
+  experiment_summary,
+  file = file.path(output_root, "experiment_summary.rds")
+)
+```

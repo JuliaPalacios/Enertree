@@ -183,9 +183,6 @@ summarize_run <- function(traj, tail_frac = 0.5){
 
 ```
 
-
-
-
 ```{r}
 library(ape)
 library(phangorn)
