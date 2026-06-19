@@ -19,7 +19,7 @@ generate_true_M_and_data<- function(num_tips,traj="exp_traj") {
                                function(x) sub("_0", "", x))
   M_true_newick_string <-write.tree(M_true_tree$newick)
   # generate data using our true M 
-  seqgen(opts="-mHKY -t0.5 -f0.25,0.25,0.25,0.25 -l1000",
+  seqgen(opts="-mHKY -t2.0 -f0.25,0.25,0.25,0.25 -l1000 -s0.01",
          newick.tree=M_true_newick_string,
          temp.file="temp.fasta")
   data2<-read.phylip("temp.fasta")
@@ -66,28 +66,14 @@ Logdistance_prob <- function(fmat, M, beta=1, diam=1, N=1){
 
 
 log_likelihood_given_tree <- function(tree_fmat, coal_times, sequences, mode = "average", R = 10) {
-  if (mode == "average") {
-    log_likelihood <- 0
-  } else if (mode == "max") {
-    log_likelihood <- -Inf
-  } else {
-    stop("Invalid mode. Choose 'average' or 'max'.")
-  }
-  for (i in 1:R) {
-    rooted_tree <- mytree_from_F(tree_fmat, coal_times)
-    ll <- pml(rooted_tree, sequences)$log
-    if (mode == "average") {
-      log_likelihood <- log_likelihood + ll
-    } else if (mode == "max") {
-      log_likelihood <- max(log_likelihood, ll)
-    } else {
-      stop("Invalid mode. Choose 'average' or 'max'.")
-    }
-  }
-  if (mode == "average") {
-    log_likelihood <- log_likelihood / R
-  }
-  log_likelihood
+  rooted_tree <- mytree_from_F(tree_fmat, coal_times)
+  log_likelihood <- pml(
+    rooted_tree,
+    sequences,
+    bf = c(0.25, 0.25, 0.25, 0.25),
+    Q  = c(1, 2, 1, 1, 2, 1)
+  )$log
+  list(log_likelihood = log_likelihood, rooted_tree = rooted_tree)
 }
 
 
@@ -316,7 +302,7 @@ matrix_MDS_comparison_plot <- function(matrices, labels, chain_matrices = NULL, 
           sequences = sequences,
           mode = log_likelihood_mode,
           R = log_likelihood_R
-        )
+        )$log_likelihood
       },
       numeric(1)
     )

@@ -27,7 +27,7 @@ build_gradient_cache <- function(n_tips,
       sequences  = sequences,
       mode       = mode,
       R          = R_labelings
-    )
+    )$log_likelihood
     pb$tick()
   }
   pb$terminate()

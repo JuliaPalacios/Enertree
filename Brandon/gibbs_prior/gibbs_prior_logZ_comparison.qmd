@@ -24,10 +24,11 @@ output_root <- file.path("plots", "logZ_comparison")
 dir.create(output_root, recursive = TRUE, showWarnings = FALSE)
 source("gibbs_prior_joint_standardized_helpers.R")
 
-annotate_summary <- function(summary_df, sampler_type, init_type, include_log_Z) {
+annotate_summary <- function(summary_df, sampler_type, init_type, include_log_Z, include_log_Z_in_beta = NA) {
   summary_df$sampler_type <- sampler_type
   summary_df$init_type <- init_type
   summary_df$include_log_Z <- include_log_Z
+  summary_df$include_log_Z_in_beta <- include_log_Z_in_beta
   summary_df
 }
 ```
@@ -105,11 +106,56 @@ joint_upgma_logZ_true_summary <- annotate_summary(
     coal_times = true_coalescent_times,
     sequences = sequences,
     sub_samp = 1000,
-    seed = 44
+    seed = 44,
+    true_tree = M_true_tree,
+    beast_compare_trees = trees_beast_compare
   ),
   sampler_type = "joint",
   init_type = "upgma",
-  include_log_Z = TRUE
+  include_log_Z = TRUE,
+  include_log_Z_in_beta = FALSE
+)
+```
+
+## UPGMA Init, Log Z = TRUE, Log Z in Beta = TRUE
+
+```{r}
+joint_upgma_logZ_true_beta_result <- run_joint_mh_experiment(
+  experiment_id = "joint_upgma_logZ_true_beta",
+  init_M = M_upgma_fmat,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  n_iter = 10000,
+  beta_init = 1,
+  sample_beta = TRUE,
+  prior_sd = 1,
+  proposal_sd = 0.5,
+  lambda = 1,
+  mode = "max",
+  take_every = 1,
+  include_log_Z = TRUE,
+  include_log_Z_in_beta = TRUE,
+  uniform_tree_cache = uniform_tree_cache
+)
+
+joint_upgma_logZ_true_beta_summary <- annotate_summary(
+  render_mh_experiment(
+    result = joint_upgma_logZ_true_beta_result,
+    experiment_id = "joint_upgma_logZ_true_beta",
+    comparison_matrices = list(M_true_fmat, joint_upgma_logZ_true_beta_result$average_M),
+    comparison_labels = c("True M", "Average M"),
+    beast_compare_fmats = beast_compare_fmats,
+    coal_times = true_coalescent_times,
+    sequences = sequences,
+    sub_samp = 1000,
+    seed = 144,
+    true_tree = M_true_tree,
+    beast_compare_trees = trees_beast_compare
+  ),
+  sampler_type = "joint",
+  init_type = "upgma",
+  include_log_Z = TRUE,
+  include_log_Z_in_beta = TRUE
 )
 ```
 
@@ -143,11 +189,14 @@ joint_upgma_logZ_false_summary <- annotate_summary(
     coal_times = true_coalescent_times,
     sequences = sequences,
     sub_samp = 1000,
-    seed = 45
+    seed = 45,
+    true_tree = M_true_tree,
+    beast_compare_trees = trees_beast_compare
   ),
   sampler_type = "joint",
   init_type = "upgma",
-  include_log_Z = FALSE
+  include_log_Z = FALSE,
+  include_log_Z_in_beta = NA
 )
 ```
 
@@ -181,11 +230,56 @@ joint_true_init_logZ_true_summary <- annotate_summary(
     coal_times = true_coalescent_times,
     sequences = sequences,
     sub_samp = 1000,
-    seed = 46
+    seed = 46,
+    true_tree = M_true_tree,
+    beast_compare_trees = trees_beast_compare
   ),
   sampler_type = "joint",
   init_type = "true_init",
-  include_log_Z = TRUE
+  include_log_Z = TRUE,
+  include_log_Z_in_beta = FALSE
+)
+```
+
+## True Init, Log Z = TRUE, Log Z in Beta = TRUE
+
+```{r}
+joint_true_init_logZ_true_beta_result <- run_joint_mh_experiment(
+  experiment_id = "joint_true_init_logZ_true_beta",
+  init_M = M_true_fmat,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  n_iter = 10000,
+  beta_init = 1,
+  sample_beta = TRUE,
+  prior_sd = 1,
+  proposal_sd = 0.5,
+  lambda = 1,
+  mode = "max",
+  take_every = 1,
+  include_log_Z = TRUE,
+  include_log_Z_in_beta = TRUE,
+  uniform_tree_cache = uniform_tree_cache
+)
+
+joint_true_init_logZ_true_beta_summary <- annotate_summary(
+  render_mh_experiment(
+    result = joint_true_init_logZ_true_beta_result,
+    experiment_id = "joint_true_init_logZ_true_beta",
+    comparison_matrices = list(M_true_fmat, joint_true_init_logZ_true_beta_result$average_M),
+    comparison_labels = c("True M", "Average M"),
+    beast_compare_fmats = beast_compare_fmats,
+    coal_times = true_coalescent_times,
+    sequences = sequences,
+    sub_samp = 1000,
+    seed = 146,
+    true_tree = M_true_tree,
+    beast_compare_trees = trees_beast_compare
+  ),
+  sampler_type = "joint",
+  init_type = "true_init",
+  include_log_Z = TRUE,
+  include_log_Z_in_beta = TRUE
 )
 ```
 
@@ -219,11 +313,14 @@ joint_true_init_logZ_false_summary <- annotate_summary(
     coal_times = true_coalescent_times,
     sequences = sequences,
     sub_samp = 1000,
-    seed = 47
+    seed = 47,
+    true_tree = M_true_tree,
+    beast_compare_trees = trees_beast_compare
   ),
   sampler_type = "joint",
   init_type = "true_init",
-  include_log_Z = FALSE
+  include_log_Z = FALSE,
+  include_log_Z_in_beta = NA
 )
 ```
 
@@ -260,11 +357,14 @@ mean_upgma_logZ_false_summary <- annotate_summary(
     coal_times = true_coalescent_times,
     sequences = sequences,
     sub_samp = 1000,
-    seed = 49
+    seed = 49,
+    true_tree = M_true_tree,
+    beast_compare_trees = trees_beast_compare
   ),
   sampler_type = "mean",
   init_type = "upgma",
-  include_log_Z = FALSE
+  include_log_Z = FALSE,
+  include_log_Z_in_beta = NA
 )
 ```
 
@@ -299,11 +399,14 @@ mean_true_init_logZ_false_summary <- annotate_summary(
     coal_times = true_coalescent_times,
     sequences = sequences,
     sub_samp = 1000,
-    seed = 51
+    seed = 51,
+    true_tree = M_true_tree,
+    beast_compare_trees = trees_beast_compare
   ),
   sampler_type = "mean",
   init_type = "true_init",
-  include_log_Z = FALSE
+  include_log_Z = FALSE,
+  include_log_Z_in_beta = NA
 )
 ```
 
@@ -382,7 +485,8 @@ beast_summary <- annotate_summary(
   ),
   sampler_type = "beast_reference",
   init_type = "beast",
-  include_log_Z = NA
+  include_log_Z = NA,
+  include_log_Z_in_beta = NA
 )
 
 matrix_chain_ess_heatmap(
@@ -405,8 +509,10 @@ matrix_chain_ess_heatmap(
 ```{r}
 experiment_summary <- rbind(
   joint_upgma_logZ_true_summary,
+  joint_upgma_logZ_true_beta_summary,
   joint_upgma_logZ_false_summary,
   joint_true_init_logZ_true_summary,
+  joint_true_init_logZ_true_beta_summary,
   joint_true_init_logZ_false_summary,
   mean_upgma_logZ_false_summary,
   mean_true_init_logZ_false_summary,
