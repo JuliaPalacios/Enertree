@@ -173,6 +173,92 @@ plot_beta_histogram <- function(beta_chain, title, save_path) {
   ggsave(filename = paste0("plots/", save_path), plot = p, width = 8, height = 6, dpi = 150)
 }
 
+fmat_posterior_comparison_plot <- function(
+    chain_fmats,
+    beast_fmats,
+    true_fmat,
+    threshold = 0.01,
+    title = "F-matrix posterior comparison",
+    save_path = NULL) {
+  chain_fmats <- Filter(Negate(is.null), chain_fmats)
+  beast_fmats <- Filter(Negate(is.null), beast_fmats)
+
+  n_chain <- length(chain_fmats)
+  n_beast <- length(beast_fmats)
+
+  fmat_key <- function(F) paste(round(F[lower.tri(F, diag = TRUE)], 4), collapse = "|")
+
+  chain_keys <- vapply(chain_fmats, fmat_key, character(1))
+  beast_keys <- vapply(beast_fmats, fmat_key, character(1))
+
+  chain_counts <- table(chain_keys)
+  beast_counts <- table(beast_keys)
+
+  chain_dict <- setNames(as.numeric(chain_counts) / n_chain, names(chain_counts))
+  beast_dict <- setNames(as.numeric(beast_counts) / n_beast, names(beast_counts))
+
+  all_keys <- union(names(chain_dict), names(beast_dict))
+  p_chain <- unname(chain_dict[all_keys]); p_chain[is.na(p_chain)] <- 0
+  p_beast <- unname(beast_dict[all_keys]); p_beast[is.na(p_beast)] <- 0
+
+  representative_fmats <- list()
+  for (i in seq_along(chain_fmats)) {
+    k <- chain_keys[i]
+    if (is.null(representative_fmats[[k]])) representative_fmats[[k]] <- chain_fmats[[i]]
+  }
+  for (i in seq_along(beast_fmats)) {
+    k <- beast_keys[i]
+    if (is.null(representative_fmats[[k]])) representative_fmats[[k]] <- beast_fmats[[i]]
+  }
+
+  l2_to_true <- vapply(all_keys, function(k) {
+    distance_Fmat(representative_fmats[[k]], true_fmat, dist = "l2")
+  }, numeric(1))
+
+  l1_distance <- sum(abs(p_chain - p_beast))
+
+  df <- data.frame(
+    fmat_key = all_keys,
+    p_chain = p_chain,
+    p_beast = p_beast,
+    l2_to_true = l2_to_true,
+    stringsAsFactors = FALSE
+  )
+
+  df_plot <- df[pmax(df$p_chain, df$p_beast) >= threshold, , drop = FALSE]
+
+  p <- ggplot(df_plot, aes(x = p_beast, y = p_chain, color = l2_to_true)) +
+    geom_abline(slope = 1, intercept = 0, color = "black") +
+    geom_abline(slope = 1, intercept = 0.2, linetype = "dashed", color = "grey50") +
+    geom_abline(slope = 1, intercept = -0.2, linetype = "dashed", color = "grey50") +
+    geom_point(alpha = 0.85, size = 2.5) +
+    scale_color_viridis_c(option = "viridis", name = "L2 to true F", direction = -1) +
+    coord_equal(xlim = c(0, 1), ylim = c(0, 1)) +
+    labs(
+      title = title,
+      subtitle = sprintf(
+        "L1 distance over %d F-matrices = %.3f | shown: max(p) >= %g (%d/%d)",
+        nrow(df), l1_distance, threshold, nrow(df_plot), nrow(df)
+      ),
+      x = "BEAST posterior probability",
+      y = "Chain posterior probability"
+    ) +
+    theme_minimal(base_size = 14)
+
+  print(p)
+  if (!is.null(save_path)) {
+    ggsave(filename = paste0("plots/", save_path), plot = p, width = 8, height = 8, dpi = 150)
+  }
+
+  list(
+    plot = p,
+    l1_distance = l1_distance,
+    threshold = threshold,
+    df = df,
+    df_plot = df_plot
+  )
+}
+
 clade_posterior_comparison_plot <- function(
     chain_trees,
     beast_trees,
@@ -319,7 +405,7 @@ rf_histogram_plot <- function(chain_trees, beast_trees, true_tree,
 }
 
 joint_log_posterior <- function(beta, M, coal_times, prior_sd, log_Z_M_B = NULL, lambda = 1, start_tree = NULL,
-                                mode = "max", sequences, n_tips) {
+                                mode = "max", sequences, n_tips, n_label_samples = 1) {
   tree_fmat <- sampleF(
     M,
     beta,
@@ -335,7 +421,7 @@ joint_log_posterior <- function(beta, M, coal_times, prior_sd, log_Z_M_B = NULL,
     coal_times = coal_times,
     sequences = sequences,
     mode = mode,
-    R = 10
+    R = n_label_samples
   )
   log_likelihood <- ll_res$log_likelihood
   log_rooted_given_unrooted <- log(2^(num_cherries(tree_fmat)) / factorial(n_tips))
@@ -356,7 +442,7 @@ joint_log_posterior <- function(beta, M, coal_times, prior_sd, log_Z_M_B = NULL,
 
 tree_log_posterior <- function(tree_fmat, beta, M, coal_times, lambda = 1,
                                 mode = "max", sequences, n_tips, prior_sd = NULL,
-                                log_Z_M_B = NULL) {
+                                log_Z_M_B = NULL, n_label_samples = 1) {
 
   log_boltzmann_dist <- Logdistance_prob(tree_fmat, M, beta = beta, diam = 1)
   ll_res <- log_likelihood_given_tree(
@@ -364,7 +450,7 @@ tree_log_posterior <- function(tree_fmat, beta, M, coal_times, lambda = 1,
     coal_times = coal_times,
     sequences = sequences,
     mode = mode,
-    R = 10
+    R = n_label_samples
   )
   log_likelihood <- ll_res$log_likelihood
   log_rooted_given_unrooted <- log(2^(num_cherries(tree_fmat)) / factorial(n_tips))
@@ -398,6 +484,8 @@ run_joint_mh_experiment <- function(
     take_every = 1,
     include_log_Z = FALSE,
     include_log_Z_in_beta = FALSE,
+    beta_cap = Inf,
+    n_label_samples = 10,
     uniform_tree_cache = NULL) {
   n_tips <- ncol(init_M) + 1
 
@@ -435,7 +523,8 @@ run_joint_mh_experiment <- function(
     start_tree = current_M,
     mode = mode,
     sequences = sequences,
-    n_tips = n_tips
+    n_tips = n_tips,
+    n_label_samples = n_label_samples
   )
   current_tree <- current_res$tree_fmat
   current_labeled_tree <- current_res$rooted_tree
@@ -451,7 +540,8 @@ run_joint_mh_experiment <- function(
       sequences = sequences,
       n_tips = n_tips,
       prior_sd = prior_sd,
-      log_Z_M_B = current_log_Z_M_B
+      log_Z_M_B = current_log_Z_M_B,
+      n_label_samples = n_label_samples
     )$log_posterior
   } else {
     current_log_post_beta
@@ -469,6 +559,8 @@ run_joint_mh_experiment <- function(
       proposed_g <- rnorm(1, mean = current_g, sd = proposal_sd)
       proposed_beta <- exp(proposed_g)
 
+      if (proposed_beta <= beta_cap) {
+
       proposed_log_Z_for_beta <- if (include_log_Z) compute_log_Z_est(proposed_beta, current_M, uniform_tree_cache) else NULL
 
       beta_res <- joint_log_posterior(
@@ -481,7 +573,8 @@ run_joint_mh_experiment <- function(
         start_tree = current_tree,
         mode = mode,
         sequences = sequences,
-        n_tips = n_tips
+        n_tips = n_tips,
+        n_label_samples = n_label_samples
       )
       proposed_log_post_beta <- beta_res$log_posterior
 
@@ -503,12 +596,15 @@ run_joint_mh_experiment <- function(
             sequences = sequences,
             n_tips = n_tips,
             prior_sd = prior_sd,
-            log_Z_M_B = current_log_Z_M_B
+            log_Z_M_B = current_log_Z_M_B,
+            n_label_samples = n_label_samples
           )$log_posterior
         } else {
           current_log_post_M <- current_log_post_beta
         }
         accepted_beta <- accepted_beta + 1
+      }
+
       }
     }
 
@@ -526,7 +622,8 @@ run_joint_mh_experiment <- function(
       start_tree = current_tree,
       mode = mode,
       sequences = sequences,
-      n_tips = n_tips
+      n_tips = n_tips,
+      n_label_samples = n_label_samples
     )
     proposed_log_post_M <- M_res$log_posterior
 
@@ -548,7 +645,8 @@ run_joint_mh_experiment <- function(
         sequences = sequences,
         n_tips = n_tips,
         prior_sd = prior_sd,
-        log_Z_M_B = if (use_logZ_for_beta) current_log_Z_M_B else NULL
+        log_Z_M_B = if (use_logZ_for_beta) current_log_Z_M_B else NULL,
+        n_label_samples = n_label_samples
       )$log_posterior
       if (!include_log_Z) {
         current_log_post_M <- current_log_post_beta
@@ -576,6 +674,7 @@ run_joint_mh_experiment <- function(
         if (include_log_Z) paste("Current Log Z:", current_log_Z_M_B) else "",
         "\n"
       )
+      flush.console()
     }
   }
 
@@ -617,6 +716,8 @@ run_mean_mh_experiment <- function(
     mode = "max",
     take_every = 1,
     include_log_Z = FALSE,
+    beta_cap = Inf,
+    n_label_samples = 10,
     uniform_tree_cache = NULL) {
   n_tips <- ncol(init_M) + 1
 
@@ -653,7 +754,8 @@ run_mean_mh_experiment <- function(
       sequences = sequences,
       n_tips = n_tips,
       prior_sd = if (sample_beta) prior_sd else NULL,
-      log_Z_M_B = current_log_Z_M_B
+      log_Z_M_B = current_log_Z_M_B,
+      n_label_samples = n_label_samples
     )
   current_log_post <- current_res$log_posterior
   current_labeled_tree <- current_res$rooted_tree
@@ -668,6 +770,9 @@ run_mean_mh_experiment <- function(
     if (sample_beta) {
       proposed_g <- rnorm(1, mean = current_g, sd = proposal_sd)
       proposed_beta <- exp(proposed_g)
+
+      if (proposed_beta <= beta_cap) {
+
       proposed_log_Z_M_B <- if (include_log_Z) compute_log_Z_est(proposed_beta, current_M, uniform_tree_cache) else NULL
 
       beta_res <- tree_log_posterior(
@@ -680,7 +785,8 @@ run_mean_mh_experiment <- function(
         sequences = sequences,
         n_tips = n_tips,
         prior_sd = prior_sd,
-        log_Z_M_B = proposed_log_Z_M_B
+        log_Z_M_B = proposed_log_Z_M_B,
+        n_label_samples = n_label_samples
       )
       proposed_log_post_beta <- beta_res$log_posterior
 
@@ -691,6 +797,8 @@ run_mean_mh_experiment <- function(
         current_log_Z_M_B <- proposed_log_Z_M_B
         current_labeled_tree <- beta_res$rooted_tree
         accepted_beta <- accepted_beta + 1
+      }
+
       }
     }
 
@@ -709,7 +817,8 @@ run_mean_mh_experiment <- function(
       sequences = sequences,
       n_tips = n_tips,
       prior_sd = if (sample_beta) prior_sd else NULL,
-      log_Z_M_B = current_log_Z_M_B
+      log_Z_M_B = current_log_Z_M_B,
+      n_label_samples = n_label_samples
     )
     proposed_log_post <- tree_res$log_posterior
 
@@ -734,7 +843,8 @@ run_mean_mh_experiment <- function(
         sequences = sequences,
         n_tips = n_tips,
         prior_sd = if (sample_beta) prior_sd else NULL,
-        log_Z_M_B = current_log_Z_M_B
+        log_Z_M_B = current_log_Z_M_B,
+        n_label_samples = n_label_samples
       )
       current_log_post <- current_res$log_posterior
       current_labeled_tree <- current_res$rooted_tree
@@ -759,6 +869,7 @@ run_mean_mh_experiment <- function(
         if (include_log_Z) paste("Current Log Z:", current_log_Z_M_B) else "",
         "\n"
       )
+      flush.console()
     }
   }
 
@@ -781,6 +892,233 @@ run_mean_mh_experiment <- function(
     lambda = lambda
   )
 }
+
+
+run_gibbs_mh_experiment <- function(
+    experiment_id,
+    init_M,
+    coal_times,
+    sequences,
+    n_iter = 10000,
+    tree_inner_iter = 50,
+    inner_take_every = 10,
+    beta_init = 1,
+    sample_beta = TRUE,
+    prior_sd = 1,
+    proposal_sd = 0.5,
+    lambda = 1,
+    mode = "max",
+    take_every = 1,
+    include_log_Z = TRUE,
+    beta_cap = Inf,
+    n_label_samples = 1,
+    uniform_tree_cache = NULL) {
+  n_tips <- ncol(init_M) + 1
+
+  beta_chain <- numeric(n_iter)
+  log_post_chain <- numeric(n_iter)
+  M_chain <- vector("list", ceiling(n_iter / take_every))
+  tree_chain <- vector("list", ceiling(n_iter / take_every))
+  labeled_tree_chain <- vector("list", ceiling(n_iter / take_every))
+
+  inner_capacity <- 1 + (n_iter - 1) * ceiling(tree_inner_iter / inner_take_every)
+  inner_tree_chain <- vector("list", inner_capacity)
+  inner_labeled_tree_chain <- vector("list", inner_capacity)
+  inner_save_idx <- 0
+
+  accepted_beta <- 0
+  accepted_M <- 0
+  accepted_tree <- 0
+  total_tree_proposals <- 0
+
+  current_beta <- beta_init
+  current_g <- if (sample_beta) log(current_beta) else NULL
+  current_M <- init_M
+  current_tree <- gen_Fmat(rcoal(n_tips), tol = 8)
+
+  if (is.null(uniform_tree_cache) && include_log_Z) {
+    uniform_tree_cache <- generate_proposal_tree_chain_cache(
+      n_trees = 100000,
+      n_tips = n_tips
+    )
+  }
+
+  current_log_Z <- if (include_log_Z) compute_log_Z_est(current_beta, current_M, uniform_tree_cache) else NULL
+
+  initial_ll <- log_likelihood_given_tree(
+    tree_fmat = current_tree,
+    coal_times = coal_times,
+    sequences = sequences,
+    mode = mode,
+    R = n_label_samples
+  )
+  current_log_L <- initial_ll$log_likelihood
+  current_labeled_tree <- initial_ll$rooted_tree
+
+  total_log_post <- function(log_L, tree, M, beta, log_Z) {
+    log_q <- Logdistance_prob(tree, M, beta = beta, diam = 1)
+    log_rooted <- log(2^(num_cherries(tree)) / factorial(n_tips))
+    out <- log_L / lambda + log_rooted + log_q
+    if (sample_beta) out <- out + dnorm(log(beta), 0, prior_sd, log = TRUE)
+    if (!is.null(log_Z)) out <- out - log_Z
+    out
+  }
+
+  current_log_post <- total_log_post(current_log_L, current_tree, current_M, current_beta, current_log_Z)
+
+  beta_chain[1] <- current_beta
+  log_post_chain[1] <- current_log_post
+  M_chain[[1]] <- current_M
+  tree_chain[[1]] <- current_tree
+  labeled_tree_chain[[1]] <- current_labeled_tree
+
+  inner_save_idx <- inner_save_idx + 1
+  inner_tree_chain[[inner_save_idx]] <- current_tree
+  inner_labeled_tree_chain[[inner_save_idx]] <- current_labeled_tree
+
+  for (iter in 2:n_iter) {
+
+    # ---- STEP 1: tree | M, beta (Z cancels because M, beta fixed) ----
+    for (t_step in seq_len(tree_inner_iter)) {
+      total_tree_proposals <- total_tree_proposals + 1
+
+      proposed_tree <- Fmat_from_myencod(proposal_myencod(my_encod(current_tree)))
+
+      proposed_ll <- log_likelihood_given_tree(
+        tree_fmat = proposed_tree,
+        coal_times = coal_times,
+        sequences = sequences,
+        mode = mode,
+        R = n_label_samples
+      )
+      proposed_log_L <- proposed_ll$log_likelihood
+
+      proposed_log_q <- Logdistance_prob(proposed_tree, current_M, beta = current_beta, diam = 1)
+      current_log_q  <- Logdistance_prob(current_tree,  current_M, beta = current_beta, diam = 1)
+
+      proposed_log_rooted <- log(2^(num_cherries(proposed_tree)) / factorial(n_tips))
+      current_log_rooted  <- log(2^(num_cherries(current_tree))  / factorial(n_tips))
+
+      log_ratio <- (proposed_log_L - current_log_L) / lambda +
+                   (proposed_log_q - current_log_q) +
+                   (proposed_log_rooted - current_log_rooted)
+
+      if (log(runif(1)) < log_ratio) {
+        current_tree <- proposed_tree
+        current_log_L <- proposed_log_L
+        current_labeled_tree <- proposed_ll$rooted_tree
+        accepted_tree <- accepted_tree + 1
+      }
+
+      if (t_step %% inner_take_every == 0) {
+        inner_save_idx <- inner_save_idx + 1
+        inner_tree_chain[[inner_save_idx]] <- current_tree
+        inner_labeled_tree_chain[[inner_save_idx]] <- current_labeled_tree
+      }
+    }
+
+    # ---- STEP 2: beta | tree, M (L is constant, cancels; Z and prior matter) ----
+    if (sample_beta) {
+      proposed_g <- rnorm(1, mean = current_g, sd = proposal_sd)
+      proposed_beta <- exp(proposed_g)
+
+      if (proposed_beta <= beta_cap) {
+
+      proposed_log_q <- Logdistance_prob(current_tree, current_M, beta = proposed_beta, diam = 1)
+      current_log_q  <- Logdistance_prob(current_tree, current_M, beta = current_beta,  diam = 1)
+
+      proposed_log_Z <- if (include_log_Z) compute_log_Z_est(proposed_beta, current_M, uniform_tree_cache) else NULL
+
+      log_prior_proposed <- dnorm(log(proposed_beta), 0, prior_sd, log = TRUE)
+      log_prior_current  <- dnorm(log(current_beta),  0, prior_sd, log = TRUE)
+
+      log_ratio <- (proposed_log_q - current_log_q) +
+                   (log_prior_proposed - log_prior_current)
+      if (include_log_Z) {
+        log_ratio <- log_ratio - (proposed_log_Z - current_log_Z)
+      }
+
+      if (log(runif(1)) < log_ratio) {
+        current_beta <- proposed_beta
+        current_g <- proposed_g
+        if (include_log_Z) current_log_Z <- proposed_log_Z
+        accepted_beta <- accepted_beta + 1
+      }
+
+      }
+    }
+
+    # ---- STEP 3: M | tree, beta (L is constant, cancels; Z matters; prior(M) assumed uniform) ----
+    proposed_M <- Fmat_from_myencod(proposal_myencod(my_encod(current_M)))
+
+    proposed_log_q <- Logdistance_prob(current_tree, proposed_M, beta = current_beta, diam = 1)
+    current_log_q  <- Logdistance_prob(current_tree, current_M,  beta = current_beta, diam = 1)
+
+    proposed_log_Z <- if (include_log_Z) compute_log_Z_est(current_beta, proposed_M, uniform_tree_cache) else NULL
+
+    log_ratio <- proposed_log_q - current_log_q
+    if (include_log_Z) {
+      log_ratio <- log_ratio - (proposed_log_Z - current_log_Z)
+    }
+
+    if (log(runif(1)) < log_ratio) {
+      current_M <- proposed_M
+      if (include_log_Z) current_log_Z <- proposed_log_Z
+      accepted_M <- accepted_M + 1
+    }
+
+    current_log_post <- total_log_post(current_log_L, current_tree, current_M, current_beta, current_log_Z)
+
+    beta_chain[iter] <- current_beta
+    log_post_chain[iter] <- current_log_post
+
+    if (iter %% take_every == 0) {
+      slot <- iter / take_every
+      M_chain[[slot]] <- current_M
+      tree_chain[[slot]] <- current_tree
+      labeled_tree_chain[[slot]] <- current_labeled_tree
+    }
+
+    per10 <- max(1, floor(n_iter / 10))
+    if (iter %% per10 == 0) {
+      cat(
+        "Iteration:", iter,
+        "Current Beta:", current_beta,
+        "Log Posterior:", current_log_post,
+        "Tree accept rate:", round(accepted_tree / total_tree_proposals, 3),
+        if (include_log_Z) paste("Current Log Z:", current_log_Z) else "",
+        "\n"
+      )
+      flush.console()
+    }
+  }
+
+  valid_M_chain <- Filter(Negate(is.null), M_chain)
+  average_M_raw <- Reduce(`+`, valid_M_chain) / length(valid_M_chain)
+  average_M <- nearby_Fmat(average_M_raw)
+
+  inner_tree_chain <- inner_tree_chain[seq_len(inner_save_idx)]
+  inner_labeled_tree_chain <- inner_labeled_tree_chain[seq_len(inner_save_idx)]
+
+  list(
+    experiment_id = experiment_id,
+    beta_chain = beta_chain,
+    log_posterior = log_post_chain,
+    M_chain = M_chain,
+    tree_chain = tree_chain,
+    labeled_tree_chain = labeled_tree_chain,
+    inner_tree_chain = inner_tree_chain,
+    inner_labeled_tree_chain = inner_labeled_tree_chain,
+    average_M_raw = average_M_raw,
+    average_M = average_M,
+    acceptance_rate_beta = if (sample_beta) accepted_beta / (n_iter - 1) else 1,
+    acceptance_rate_M = accepted_M / (n_iter - 1),
+    acceptance_rate_tree = accepted_tree / total_tree_proposals,
+    lambda = lambda
+  )
+}
+
+
 build_prefix_summaries <- function(
     M_chain,
     F_chain,
@@ -1081,9 +1419,35 @@ render_mh_experiment <- function(
   )
 
   clade_l1_distance <- NA_real_
-  if (!is.null(result$labeled_tree_chain) && !is.null(true_tree) && !is.null(beast_compare_trees)) {
+  fmat_l1_distance <- NA_real_
+  labeled_trees_for_diag <- if (!is.null(result$inner_labeled_tree_chain)) {
+    result$inner_labeled_tree_chain
+  } else {
+    result$labeled_tree_chain
+  }
+  fmats_for_diag <- if (!is.null(result$inner_tree_chain)) {
+    result$inner_tree_chain
+  } else {
+    result$tree_chain
+  }
+  if (!is.null(fmats_for_diag) && !is.null(beast_compare_fmats)) {
+    fmat_res <- fmat_posterior_comparison_plot(
+      chain_fmats = fmats_for_diag,
+      beast_fmats = beast_compare_fmats,
+      true_fmat = M_true_fmat,
+      threshold = 0.01,
+      title = paste0(experiment_id, ": F-matrix posterior vs BEAST"),
+      save_path = save_path_for(experiment_id, "fmat_posterior_vs_beast.png")
+    )
+    fmat_l1_distance <- fmat_res$l1_distance
+  }
+  if (!is.null(labeled_trees_for_diag) && !is.null(true_tree) && !is.null(beast_compare_trees)) {
+    cat("Using", length(Filter(Negate(is.null), labeled_trees_for_diag)),
+        "labeled trees for RF / clade diagnostics",
+        if (!is.null(result$inner_labeled_tree_chain)) "(inner chain)" else "(outer chain)",
+        "\n")
     rf_res <- rf_histogram_plot(
-      chain_trees = result$labeled_tree_chain,
+      chain_trees = labeled_trees_for_diag,
       beast_trees = beast_compare_trees,
       true_tree = true_tree,
       title = paste0(experiment_id, ": RF distance to true tree"),
@@ -1095,7 +1459,7 @@ render_mh_experiment <- function(
       save_path = save_path_for(experiment_id, "rf_trace.png")
     )
     clade_res <- clade_posterior_comparison_plot(
-      chain_trees = result$labeled_tree_chain,
+      chain_trees = labeled_trees_for_diag,
       beast_trees = beast_compare_trees,
       true_tree = true_tree,
       threshold = 0.01,
@@ -1178,7 +1542,8 @@ render_mh_experiment <- function(
     acceptance_rate_beta = result_value_or_na(result$acceptance_rate_beta),
     acceptance_rate_M = result_value_or_na(result$acceptance_rate_M),
     average_M_distance_to_true = distance_Fmat(result$average_M, M_true_fmat),
-    clade_l1_distance_vs_beast = clade_l1_distance
+    clade_l1_distance_vs_beast = clade_l1_distance,
+    fmat_l1_distance_vs_beast = fmat_l1_distance
   )
 }
 
@@ -1242,6 +1607,7 @@ render_beast_experiment <- function(
     acceptance_rate_beta = NA_real_,
     acceptance_rate_M = NA_real_,
     average_M_distance_to_true = distance_Fmat(beast_average_M, M_true_fmat),
-    clade_l1_distance_vs_beast = NA_real_
+    clade_l1_distance_vs_beast = NA_real_,
+    fmat_l1_distance_vs_beast = NA_real_
   )
 }

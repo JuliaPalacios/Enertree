@@ -1,0 +1,178 @@
+---
+title: "Gibbs Prior - Gibbs Three-Step Only"
+format: html
+editor: visual
+---
+
+# Setup
+
+```{r}
+setwd("/Users/brandonmarks/Desktop/Research/Palacios Lab/Untitled/Enertree/Brandon/gibbs_prior")
+
+library(ape)
+library(phylodyn)
+library(phangorn)
+library(phyclust)
+library(phylotools)
+library(fmatrix)
+library(coda)
+library(ggplot2)
+
+source("utils.R")
+
+output_root <- file.path("plots", "logZ_comparison")
+dir.create(output_root, recursive = TRUE, showWarnings = FALSE)
+source("gibbs_prior_joint_standardized_helpers.R")
+
+annotate_summary <- function(summary_df, sampler_type, init_type, include_log_Z, include_log_Z_in_beta = NA) {
+  summary_df$sampler_type <- sampler_type
+  summary_df$init_type <- init_type
+  summary_df$include_log_Z <- include_log_Z
+  summary_df$include_log_Z_in_beta <- include_log_Z_in_beta
+  summary_df
+}
+```
+
+## Shared Data
+
+```{r}
+n_tips <- 25
+set.seed(123)
+
+sequences <- as.phyDat(read.FASTA("sequences.fasta"))
+
+M_true_tree <- read.tree("true_tree.newick")
+inter_coal_times <- coalescent.intervals(M_true_tree)$interval.length
+inter_coal_times[which(inter_coal_times <= 0.000001)] <- 0.0000001
+true_coalescent_times <- cumsum(inter_coal_times)
+M_true_fmat <- gen_Fmat(M_true_tree, tol = 8)
+```
+
+### Reference Matrices
+
+```{r}
+dm <- dist.hamming(sequences)
+
+upgma_tree <- upgma(dm)
+upgma_tree <- update_time(upgma_tree, true_coalescent_times)
+M_upgma_fmat <- gen_Fmat(upgma_tree, tol = 8)
+```
+
+### BEAST Reference Data
+
+```{r}
+trees_beast_compare <- read.nexus("HKY1000Gibbs-sequences.trees")
+beast_compare_fmats <- lapply(trees_beast_compare, gen_Fmat, tol = 8)
+```
+
+### Shared Log Z Cache
+
+```{r}
+uniform_tree_cache <- generate_proposal_tree_chain_cache(
+  n_trees = 100000,
+  n_tips = n_tips
+)
+```
+
+# Gibbs Three-Step
+
+## UPGMA Init, Log Z = TRUE
+
+```{r}
+gibbs_upgma_logZ_true_result <- run_gibbs_mh_experiment(
+  experiment_id = "gibbs_upgma_logZ_true",
+  init_M = M_upgma_fmat,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  n_iter = 10000,
+  tree_inner_iter = 25,
+  inner_take_every = 10,
+  beta_init = 1,
+  sample_beta = TRUE,
+  prior_sd = 1,
+  proposal_sd = 0.5,
+  lambda = 1,
+  mode = "max",
+  take_every = 1,
+  include_log_Z = TRUE,
+  beta_cap = 10,
+  n_label_samples = 10,
+  uniform_tree_cache = uniform_tree_cache
+)
+
+gibbs_upgma_logZ_true_summary <- annotate_summary(
+  render_mh_experiment(
+    result = gibbs_upgma_logZ_true_result,
+    experiment_id = "gibbs_upgma_logZ_true",
+    comparison_matrices = list(M_true_fmat, gibbs_upgma_logZ_true_result$average_M),
+    comparison_labels = c("True M", "Average M"),
+    beast_compare_fmats = beast_compare_fmats,
+    coal_times = true_coalescent_times,
+    sequences = sequences,
+    sub_samp = 1000,
+    seed = 200,
+    true_tree = M_true_tree,
+    beast_compare_trees = trees_beast_compare
+  ),
+  sampler_type = "gibbs",
+  init_type = "upgma",
+  include_log_Z = TRUE,
+  include_log_Z_in_beta = NA
+)
+```
+
+## True Init, Log Z = TRUE
+
+```{r}
+gibbs_true_init_logZ_true_result <- run_gibbs_mh_experiment(
+  experiment_id = "gibbs_true_init_logZ_true",
+  init_M = M_true_fmat,
+  coal_times = true_coalescent_times,
+  sequences = sequences,
+  n_iter = 10000,
+  tree_inner_iter = 25,
+  inner_take_every = 10,
+  beta_init = 1,
+  sample_beta = TRUE,
+  prior_sd = 1,
+  proposal_sd = 0.5,
+  lambda = 1,
+  mode = "max",
+  take_every = 1,
+  include_log_Z = TRUE,
+  beta_cap = 10,
+  n_label_samples = 25,
+  uniform_tree_cache = uniform_tree_cache
+)
+
+gibbs_true_init_logZ_true_summary <- annotate_summary(
+  render_mh_experiment(
+    result = gibbs_true_init_logZ_true_result,
+    experiment_id = "gibbs_true_init_logZ_true",
+    comparison_matrices = list(M_true_fmat, gibbs_true_init_logZ_true_result$average_M),
+    comparison_labels = c("True M", "Average M"),
+    beast_compare_fmats = beast_compare_fmats,
+    coal_times = true_coalescent_times,
+    sequences = sequences,
+    sub_samp = 1000,
+    seed = 201,
+    true_tree = M_true_tree,
+    beast_compare_trees = trees_beast_compare
+  ),
+  sampler_type = "gibbs",
+  init_type = "true_init",
+  include_log_Z = TRUE,
+  include_log_Z_in_beta = NA
+)
+```
+
+# Summary
+
+```{r}
+experiment_summary <- rbind(
+  gibbs_upgma_logZ_true_summary,
+  gibbs_true_init_logZ_true_summary
+)
+
+print(experiment_summary)
+```

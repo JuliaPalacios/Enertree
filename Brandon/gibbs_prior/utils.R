@@ -65,15 +65,26 @@ Logdistance_prob <- function(fmat, M, beta=1, diam=1, N=1){
 }
 
 
-log_likelihood_given_tree <- function(tree_fmat, coal_times, sequences, mode = "average", R = 10) {
-  rooted_tree <- mytree_from_F(tree_fmat, coal_times)
-  log_likelihood <- pml(
-    rooted_tree,
-    sequences,
-    bf = c(0.25, 0.25, 0.25, 0.25),
-    Q  = c(1, 2, 1, 1, 2, 1)
-  )$log
-  list(log_likelihood = log_likelihood, rooted_tree = rooted_tree)
+log_likelihood_given_tree <- function(tree_fmat, coal_times, sequences, mode = "max", R = 1) {
+  best_ll <- -Inf
+  best_tree <- NULL
+  ll_sum <- 0
+  for (r in seq_len(R)) {
+    rooted_tree <- mytree_from_F(tree_fmat, coal_times)
+    ll <- pml(
+      rooted_tree,
+      sequences,
+      bf = c(0.25, 0.25, 0.25, 0.25),
+      Q  = c(1, 2, 1, 1, 2, 1)
+    )$log
+    ll_sum <- ll_sum + ll
+    if (ll > best_ll) {
+      best_ll <- ll
+      best_tree <- rooted_tree
+    }
+  }
+  log_likelihood <- if (mode == "max") best_ll else ll_sum / R
+  list(log_likelihood = log_likelihood, rooted_tree = best_tree)
 }
 
 
@@ -116,7 +127,7 @@ sampleF <- function(M, beta, iter, diam, startF = NULL, take_every = 1){
       acceptance_rate <- acceptance_rate + 1
     } else {
       if(j%%take_every == 0){
-        chainF[[j/take_every]] <- f_proposed
+        chainF[[j/take_every]] <- f_current
       }
     }
     if(j%%take_every == 0){

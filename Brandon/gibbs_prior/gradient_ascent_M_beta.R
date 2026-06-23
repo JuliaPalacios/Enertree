@@ -226,7 +226,7 @@ fit <- gradient_ascent_M_beta(
    beta_init = 1,
    n_iter    = 500,
    lr_M      = 5e4,
-   lr_g      = 1e2xs
+   lr_g      = 1e2
  )
 
 # plot(fit$history$log_marginal, type = "l",
