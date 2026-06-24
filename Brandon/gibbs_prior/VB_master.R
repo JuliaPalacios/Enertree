@@ -16,6 +16,7 @@ library(fmatrix)
 
 # ---- Config ----
 num_tips            <- 10
+rate                <- 0.01
 step_size           <- 0.1
 num_samps           <- 200
 num_unif_samples    <- 10000
@@ -27,7 +28,7 @@ joint               <- TRUE
 init_method         <- "upgma"  # "caterpillar" or "upgma"
 
 # ---- Generate data + initialize ----
-init_results <- phylodyn:::generate_true_M_and_data(num_tips)
+init_results <- phylodyn:::generate_true_M_and_data(num_tips, rate = rate, seq_len = 1000)
 
 inter_coal_times <- coalescent.intervals(init_results$M_true_tree)$interval.length
 inter_coal_times[inter_coal_times <= 0.001] <- 0.01
@@ -35,7 +36,7 @@ coal_times <- cumsum(inter_coal_times)
 
 if (init_method == "upgma") {
   upgma_tree <- upgma(dist.hamming(init_results$sequences))
-  M_est_tree <- update_time(upgma_tree, coal_times)
+  M_est_tree <- phylodyn:::update_time(upgma_tree, coal_times)
 } else {
   init_Fmat  <- gen_caterpillar(num_tips)
   M_est_tree <- mytree_from_F(init_Fmat, coal_times)
@@ -54,7 +55,7 @@ samples_uniform <- if (exists(flist_name, mode = "list")) {
 } else {
   generate_sample_uniform(num_samps = num_unif_samples, num_tips = num_tips)
 }
-uniform_cache <- precompute_tree_chain_distance_cache(samples_uniform)
+uniform_cache <- phylodyn:::precompute_tree_chain_distance_cache(samples_uniform)
 
 # ---- AdaGrad-style gradient descent ----
 M_grads <- list(matrix(step_size, nrow = nrow(M_est), ncol = nrow(M_est)))
@@ -83,7 +84,8 @@ for (i in 1:num_grad_desc_steps) {
       M_est               = M_est,
       b_est               = exp(g_est),
       log_Z               = log_Z,
-      num_tip_label_iters = num_tip_label_iters
+      num_tip_label_iters = num_tip_label_iters,
+      rate                = rate
     )
     g_grad <- g_up$grad
     g_grads[[length(g_grads) + 1]] <- g_grad^2
@@ -102,7 +104,8 @@ for (i in 1:num_grad_desc_steps) {
       M_est               = M_est,
       b_est               = exp(g_est),
       log_Z               = log_Z,
-      num_tip_label_iters = num_tip_label_iters
+      num_tip_label_iters = num_tip_label_iters,
+      rate                = rate
     )
     M_grad <- M_up$grad
     M_grads[[length(M_grads) + 1]] <- M_grad^2
@@ -118,7 +121,8 @@ for (i in 1:num_grad_desc_steps) {
       M_est               = M_est,
       b_est               = exp(g_est),
       log_Z               = log_Z,
-      num_tip_label_iters = num_tip_label_iters
+      num_tip_label_iters = num_tip_label_iters,
+      rate                = rate
     )
     M_grad <- J_up$grad_M
     M_grads[[length(M_grads) + 1]] <- M_grad^2

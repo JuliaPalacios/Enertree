@@ -2,13 +2,14 @@ library(progress)
 library(ggplot2)
 
 
-generate_true_M_and_data<- function(num_tips,traj="exp_traj") {
+generate_true_M_and_data<- function(num_tips,traj="exp_traj", rate = 1, seq_len = 1000,
+ name_fasta = "sequences.fasta", name_tree = "true_tree.newick") {
   samp_times <- 0
   M_true_tree <- generate_newick(
     coalsim(
       samp_times = samp_times, 
       n_sampled = num_tips, 
-      exp_traj ,
+      traj = traj,
       method="tt",
       val_upper=11
     )
@@ -19,14 +20,15 @@ generate_true_M_and_data<- function(num_tips,traj="exp_traj") {
                                function(x) sub("_0", "", x))
   M_true_newick_string <-write.tree(M_true_tree$newick)
   # generate data using our true M 
-  seqgen(opts="-mHKY -t2.0 -f0.25,0.25,0.25,0.25 -l1000 -s0.01",
+  opts = paste0("-mHKY -t2.0 -f0.25,0.25,0.25,0.25 -l", seq_len, " -s", rate)
+  seqgen(opts=opts,
          newick.tree=M_true_newick_string,
          temp.file="temp.fasta")
   data2<-read.phylip("temp.fasta")
   
-  data<-dat2fasta(data2,outfile="sequences.fasta")
-  mydna<-as.phyDat(read.FASTA("sequences.fasta"))
-  write.tree(M_true_tree$newick, file="true_tree.newick")
+  data<-dat2fasta(data2,outfile=name_fasta)
+  mydna<-as.phyDat(read.FASTA(name_fasta))
+  write.tree(M_true_tree$newick, file=name_tree)
   return(list(M_true_tree = M_true_tree$newick,
               sequences = mydna))
 }
