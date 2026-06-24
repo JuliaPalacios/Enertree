@@ -6,9 +6,9 @@ library(phangorn)
 library(phylotools)
 library(fmatrix)
 
-library(devtools)
-install_github("JuliaPalacios/phylodyn")
-library("phylodyn")
+#library(devtools)
+#install_github("JuliaPalacios/phylodyn")
+
 
 #source("R/VB_Utils.R")
 
@@ -19,7 +19,7 @@ num_tips            <- 10
 step_size           <- 0.1
 num_samps           <- 200
 num_unif_samples    <- 10000
-num_grad_desc_steps <- 50
+num_grad_desc_steps <- 5000
 num_tip_label_iters <- 30
 take_every          <- 20
 burnin              <- ceiling(round(num_samps * 0.1) / take_every) * take_every
@@ -27,7 +27,7 @@ joint               <- TRUE
 init_method         <- "upgma"  # "caterpillar" or "upgma"
 
 # ---- Generate data + initialize ----
-init_results <- generate_true_M_and_data(num_tips)
+init_results <- phylodyn:::generate_true_M_and_data(num_tips)
 
 inter_coal_times <- coalescent.intervals(init_results$M_true_tree)$interval.length
 inter_coal_times[inter_coal_times <= 0.001] <- 0.01
@@ -40,9 +40,9 @@ if (init_method == "upgma") {
   init_Fmat  <- gen_caterpillar(num_tips)
   M_est_tree <- mytree_from_F(init_Fmat, coal_times)
 }
-M_est <- round(gen_Fmat(M_est_tree, tol = 8), 0)
+M_est <- round(phylodyn:::gen_Fmat(M_est_tree, tol = 8), 0)
 M_init     <- M_est
-M_true     <- round(gen_Fmat(init_results$M_true_tree, tol = 8), 0)
+M_true     <- round(phylodyn:::gen_Fmat(init_results$M_true_tree, tol = 8), 0)
 g_est      <- log(0.01)
 
 # Uniform proposal samples + cache for log-Z — depends only on num_tips, build once.
@@ -67,14 +67,14 @@ for (i in 1:num_grad_desc_steps) {
   print(M_est)
   print(paste0("Estimated log beta: ", g_est))
   
-  samples <- generate_sample_markov_chain(
+  samples <- phylodyn:::generate_sample_markov_chain(
     M = M_est, b = exp(g_est),
     num_samps = num_samps, burnin = burnin, take_every = take_every
   )
-  log_Z <- compute_log_Z_est(beta = exp(g_est), M = M_est, cache = uniform_cache)
+  log_Z <- phylodyn:::compute_log_Z_est(beta = exp(g_est), M = M_est, cache = uniform_cache)
   
   if (!joint) {
-    cache_gibbs <- precompute_tree_chain_distance_cache(samples)
+    cache_gibbs <- phylodyn:::precompute_tree_chain_distance_cache(samples)
     g_up <- estimate_grad_g2(
       data                = init_results$sequences,
       coal_times          = coal_times,
@@ -89,13 +89,13 @@ for (i in 1:num_grad_desc_steps) {
     g_grads[[length(g_grads) + 1]] <- g_grad^2
     g_est <- g_est + step_size / sqrt(Reduce('+', g_grads)) * g_grad
     
-    samples <- generate_sample_markov_chain(
+    samples <- phylodyn:::generate_sample_markov_chain(
       M = M_est, b = exp(g_est),
       num_samps = num_samps, burnin = burnin
     )
-    log_Z <- compute_log_Z_est(beta = exp(g_est), M = M_est, cache = uniform_cache)
+    log_Z <- phylodyn:::compute_log_Z_est(beta = exp(g_est), M = M_est, cache = uniform_cache)
     
-    M_up <- estimate_grad_M2(
+    M_up <- phylodyn:::estimate_grad_M2(
       data                = init_results$sequences,
       coal_times          = coal_times,
       samples_gibbs       = samples,
@@ -109,8 +109,8 @@ for (i in 1:num_grad_desc_steps) {
     M_est <- M_est + step_size / sqrt(Reduce('+', M_grads)) * M_grad
     elbos2 <- c(elbos2, M_up$elbo)
   } else {
-    cache_gibbs <- precompute_tree_chain_distance_cache(samples)
-    J_up <- estimate_grad_M_g(
+    cache_gibbs <- phylodyn:::precompute_tree_chain_distance_cache(samples)
+    J_up <- phylodyn:::estimate_grad_M_g(
       data                = init_results$sequences,
       coal_times          = coal_times,
       samples_gibbs       = samples,
