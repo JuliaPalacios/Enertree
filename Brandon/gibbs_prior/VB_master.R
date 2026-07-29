@@ -18,7 +18,7 @@ library(fmatrix)
 num_tips            <- 10
 rate                <- 0.01
 step_size           <- 0.1
-num_samps           <- 200
+num_samps           <- 2000
 num_unif_samples    <- 10000
 num_grad_desc_steps <- 5000
 num_tip_label_iters <- 30
@@ -111,6 +111,8 @@ for (i in 1:num_grad_desc_steps) {
     M_grads[[length(M_grads) + 1]] <- M_grad^2
     M_est <- M_est + step_size / sqrt(Reduce('+', M_grads)) * M_grad
     elbos2 <- c(elbos2, M_up$elbo)
+    print(paste0("ELBO: ", M_up$elbo))
+    print(paste0("L2 distance to true M: ", distance_Fmat(M_est, M_true, dist = "l2")))
   } else {
     cache_gibbs <- phylodyn:::precompute_tree_chain_distance_cache(samples)
     J_up <- phylodyn:::estimate_grad_M_g(
@@ -133,6 +135,8 @@ for (i in 1:num_grad_desc_steps) {
     g_est <- g_est + step_size / sqrt(Reduce('+', g_grads)) * g_grad
     
     elbos2 <- c(elbos2, J_up$elbo)
+    print(paste0("ELBO: ", J_up$elbo))
+    print(paste0("L2 distance to true M: ", distance_Fmat(M_est, M_true, dist = "l2")))
   }
 }
 end_time <- Sys.time()

@@ -1,0 +1,272 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb, amsthm, mathtools}
+\usepackage{bm}
+\usepackage{enumitem}
+
+\title{Recovering Row-Wise Categorical Vectors from Sampled $F$-Matrices}
+\author{}
+\date{July 21, 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Goal}
+
+We consider the following simplified problem. Let $n = 10$, where $n$ denotes the
+dimension of the lower-triangular $F$-matrix. Suppose there exist true row-wise
+categorical vectors
+\[
+\pi_i = (\pi_{i1}, \ldots, \pi_{i,i-1}), \qquad i = 3, \ldots, 10,
+\]
+with
+\[
+\pi_{ij} \ge 0,
+\qquad
+\sum_{j=1}^{i-1} \pi_{ij} = 1.
+\]
+Using these vectors, we generate $M = 10{,}000$ independent $F$-matrices
+\[
+F^{(1)}, \ldots, F^{(M)}.
+\]
+The objective is to recover the unknown categorical vectors
+\[
+\{\pi_3, \pi_4, \ldots, \pi_{10}\}
+\]
+from the sampled $F$-matrices.
+
+\section{Generative Construction}
+
+The matrix $F$ is built row by row. The first two rows are fixed:
+\[
+F_{11} = 2,
+\qquad
+F_{21} = 1,
+\qquad
+F_{22} = 3,
+\]
+and the diagonal is always fixed as
+\[
+F_{ii} = i+1, \qquad i = 1, \ldots, n.
+\]
+
+For each row $i \in \{3, \ldots, n\}$, let
+\[
+r_{i-1} = (F_{i-1,1}, \ldots, F_{i-1,i-1})
+\]
+denote the previous row. Define the row increments
+\[
+\Delta_1(r_{i-1}) = F_{i-1,1},
+\qquad
+\Delta_j(r_{i-1}) = F_{i-1,j} - F_{i-1,j-1},
+\qquad j = 2, \ldots, i-1.
+\]
+The valid breakpoint set for row $i$ is
+\[
+V_i(r_{i-1})
+=
+\{j \in \{1, \ldots, i-1\} : \Delta_j(r_{i-1}) > 0\}.
+\]
+
+Intuitively, a breakpoint is valid exactly when that position corresponds to an
+upward step in the previous row. This removes both leading zeros and flat spots.
+
+Conditional on the previous row, the breakpoint $S_i$ is sampled from the masked
+and renormalized categorical distribution
+\[
+\mathbb{P}(S_i = j \mid r_{i-1})
+=
+\frac{\pi_{ij}}{\sum_{k \in V_i(r_{i-1})} \pi_{ik}},
+\qquad j \in V_i(r_{i-1}),
+\]
+and $\mathbb{P}(S_i = j \mid r_{i-1}) = 0$ for $j \notin V_i(r_{i-1})$.
+
+Once $S_i$ is sampled, row $i$ is obtained deterministically from row $i-1$ via
+a suffix drop:
+\[
+F_{ij} =
+\begin{cases}
+F_{i-1,j}, & j < S_i, \\
+F_{i-1,j} - 1, & S_i \le j \le i-1,
+\end{cases}
+\qquad
+F_{ii} = i+1.
+\]
+
+Thus each row is governed by a single latent breakpoint rather than by independent
+cell-wise Bernoulli variables.
+
+\section{Observed Data and Latent Breakpoints}
+
+Suppose we observe the sampled matrices
+\[
+F^{(1)}, \ldots, F^{(M)}.
+\]
+For each sample $m$ and row $i$, define the row difference vector
+\[
+d_i^{(m)}
+=
+\bigl(
+F_{i-1,1}^{(m)} - F_{i,1}^{(m)},
+\ldots,
+F_{i-1,i-1}^{(m)} - F_{i,i-1}^{(m)}
+\bigr).
+\]
+
+Under the suffix-drop construction, this vector must have the form
+\[
+d_i^{(m)} = (0, \ldots, 0, 1, \ldots, 1).
+\]
+Therefore the latent breakpoint is directly recoverable from the observed matrix:
+\[
+S_i^{(m)} = \min\{j : d_{i,j}^{(m)} = 1\}.
+\]
+At the same time, the valid breakpoint set is also recoverable from the previous
+row:
+\[
+V_i^{(m)}
+=
+\left\{
+j : \Delta_j\bigl(r_{i-1}^{(m)}\bigr) > 0
+\right\}.
+\]
+
+Hence for each row $i$ and each sample $m$, the observed $F$-matrix determines
+both
+\[
+S_i^{(m)}
+\qquad \text{and} \qquad
+V_i^{(m)}.
+\]
+
+\section{Likelihood for Recovering the Categorical Vectors}
+
+Because the breakpoints are recoverable from the observed matrices, this problem
+is not yet a variational inference problem. It is a masked categorical
+maximum-likelihood problem.
+
+For a fixed row $i$, the likelihood contribution of sample $m$ is
+\[
+\mathbb{P}(S_i^{(m)} \mid V_i^{(m)}, \pi_i)
+=
+\frac{\pi_{i,S_i^{(m)}}}
+{\sum_{k \in V_i^{(m)}} \pi_{ik}}.
+\]
+Therefore the row-wise log-likelihood is
+\[
+\ell_i(\pi_i)
+=
+\sum_{m=1}^M
+\left[
+\log \pi_{i,S_i^{(m)}}
+-
+\log\left(
+\sum_{k \in V_i^{(m)}} \pi_{ik}
+\right)
+\right].
+\]
+
+The full log-likelihood is the sum across rows:
+\[
+\ell(\pi_3, \ldots, \pi_{10})
+
+=
+\sum_{i=3}^{10} \ell_i(\pi_i).
+\]
+This separates by row, so each $\pi_i$ can be estimated independently.
+
+\section{Unconstrained Parameterization}
+
+A convenient parameterization uses logits $\theta_i = (\theta_{i1}, \ldots,
+\theta_{i,i-1})$ with
+\[
+\pi_{ij}
+=
+\frac{\exp(\theta_{ij})}
+{\sum_{\ell=1}^{i-1} \exp(\theta_{i\ell})}.
+\]
+Substituting this into the row-wise log-likelihood gives
+\[
+\ell_i(\theta_i)
+=
+\sum_{m=1}^M
+\left[
+\theta_{i,S_i^{(m)}}
+-
+\log\left(
+\sum_{k \in V_i^{(m)}} \exp(\theta_{ik})
+\right)
+\right].
+\]
+
+The gradient with respect to $\theta_{ij}$ is
+\[
+\frac{\partial \ell_i}{\partial \theta_{ij}}
+=
+\sum_{m=1}^M
+\left[
+\mathbf{1}\{S_i^{(m)} = j\}
+-
+\mathbf{1}\{j \in V_i^{(m)}\}
+\frac{\exp(\theta_{ij})}
+{\sum_{k \in V_i^{(m)}} \exp(\theta_{ik})}
+\right].
+\]
+This makes gradient ascent, Adam, or any other smooth optimizer straightforward.
+
+\section{Estimation Algorithm}
+
+For the present setup with $n=10$ and $M=10{,}000$ sampled matrices, the
+estimation problem can be written as follows.
+
+\begin{enumerate}[leftmargin=2em]
+    \item For each sampled matrix $F^{(m)}$ and for each row $i = 3, \ldots, 10$:
+    \begin{enumerate}[label=(\alph*), leftmargin=2em]
+        \item compute the breakpoint $S_i^{(m)}$ from the first location where
+        row $i$ differs from row $i-1$ by $1$;
+        \item compute the valid set $V_i^{(m)}$ from the positive increments of
+        row $i-1$.
+    \end{enumerate}
+    \item For each row $i = 3, \ldots, 10$, maximize
+    \[
+    \ell_i(\theta_i)
+    =
+    \sum_{m=1}^M
+    \left[
+    \theta_{i,S_i^{(m)}}
+    -
+    \log\left(
+    \sum_{k \in V_i^{(m)}} \exp(\theta_{ik})
+    \right)
+    \right].
+    \]
+    \item Convert the fitted logits to probabilities using the softmax map:
+    \[
+    \widehat{\pi}_{ij}
+    =
+    \frac{\exp(\widehat{\theta}_{ij})}
+    {\sum_{\ell=1}^{i-1} \exp(\widehat{\theta}_{i\ell})}.
+    \]
+    \item Validate the fitted vectors by simulating new $F$-matrices from
+    $\widehat{\pi}_3, \ldots, \widehat{\pi}_{10}$ and comparing the induced
+    breakpoint frequencies and matrix summaries to the original sample.
+\end{enumerate}
+
+\section{Remarks}
+
+\begin{itemize}[leftmargin=2em]
+    \item For $n=10$, the row-wise categorical vectors have lengths
+    $2,3,\ldots,9$. This means there are $44$ raw logits but only
+    $36$ free probability parameters after accounting for the sum-to-one
+    constraint in each row.
+    \item The masking is essential. Naive empirical frequencies of the observed
+    breakpoints are generally biased because some breakpoints are unavailable in
+    some rows.
+    \item This estimation problem is a useful first stage before moving to a
+    full variational inference setup in which the $F$-matrices themselves are not
+    observed.
+\end{itemize}
+
+\end{document}

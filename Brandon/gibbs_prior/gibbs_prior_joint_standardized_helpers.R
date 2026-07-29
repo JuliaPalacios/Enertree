@@ -136,6 +136,7 @@ tree_chain_squared_distances <- function(cache, M) {
 }
 
 compute_log_Z_est <- function(beta, M, cache, diam = 1) {
+  num_tips <- dim(M)[1] + 1
   distances <- tree_chain_squared_distances(cache, M)
   
 
@@ -151,7 +152,7 @@ compute_log_Z_est <- function(beta, M, cache, diam = 1) {
 
   m <- max(log_terms)
 
-  log_Z_est <- m + log(mean(exp(log_terms - m)))
+  log_Z_est <- log(ZigZag(num_tips)) + m + log(mean(exp(log_terms - m)))
   if (!is.finite(log_Z_est)) {
     stop(
       "compute_log_Z_est() returned a non-finite log_Z estimate: ",

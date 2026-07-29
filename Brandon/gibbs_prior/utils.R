@@ -149,13 +149,38 @@ sampleF <- function(M, beta, iter, diam, startF = NULL, take_every = 1){
 
 
 
-tree_MDS_comparison_plot <- function(trees_gen, trees_data, true_tree, M_tree = NULL, title = "Tree Comparison", save_path = NULL) {
-  # 1) Combine trees
+tree_MDS_comparison_plot <- function(trees_gen, trees_data, true_tree,
+                                     M_tree = NULL,
+                                     reference_trees = NULL,
+                                     reference_labels = NULL,
+                                     true_tree_label = "True",
+                                     M_tree_label = "M Tree",
+                                     title = "Tree Comparison",
+                                     save_path = NULL) {
+  ref_trees <- list(true_tree)
+  ref_labels <- true_tree_label
+
   if (!is.null(M_tree)) {
-    trees_all <- c(trees_data, trees_gen, list(true_tree), list(M_tree))
-  } else {
-    trees_all <- c(trees_data, trees_gen, list(true_tree))
+    ref_trees <- c(ref_trees, list(M_tree))
+    ref_labels <- c(ref_labels, M_tree_label)
   }
+
+  if (!is.null(reference_trees)) {
+    if (!is.list(reference_trees)) {
+      reference_trees <- list(reference_trees)
+    }
+    if (is.null(reference_labels)) {
+      reference_labels <- paste0("Reference ", seq_along(reference_trees))
+    }
+    if (length(reference_labels) != length(reference_trees)) {
+      stop("reference_labels must have the same length as reference_trees.")
+    }
+    ref_trees <- c(ref_trees, reference_trees)
+    ref_labels <- c(ref_labels, reference_labels)
+  }
+
+  # 1) Combine trees
+  trees_all <- c(trees_data, trees_gen, ref_trees)
   n <- length(trees_all)  # should be 2001 if 1000+1000+1
 
   # 2) Compute full symmetric distance matrix
@@ -189,13 +214,8 @@ tree_MDS_comparison_plot <- function(trees_gen, trees_data, true_tree, M_tree = 
   
   # 4) Add group labels
   sub_samp <- length(trees_data)
-  if (!is.null(M_tree)) {
-    labels <- c(rep("Data", sub_samp), rep("Generated", sub_samp), "True", "M Tree")
-    coords$group <- factor(labels, levels = c("Data", "Generated", "True", "M Tree"))
-  } else {
-  labels <- c(rep("Data", sub_samp), rep("Generated", sub_samp), "True")
-  coords$group <- factor(labels, levels = c("Data", "Generated", "True"))
-  }
+  labels <- c(rep("Data", sub_samp), rep("Generated", sub_samp), ref_labels)
+  coords$group <- factor(labels, levels = unique(labels))
   
   
   
@@ -205,19 +225,12 @@ tree_MDS_comparison_plot <- function(trees_gen, trees_data, true_tree, M_tree = 
   print(paste("Proportion of variance captured in 2D:", round(prop_2d, 4)))
   
   # 6) Plot with ggplot2
-  if (is.null(M_tree)) {
-    p <- ggplot(coords, aes(x = Dim1, y = Dim2, color = group)) +
-          geom_point(size = 2) +
-          scale_color_manual(values = c("steelblue", "tomato", "green", "purple")) +
-          labs(title = title, x = "MDS 1", y = "MDS 2", color = "Group") +
-          theme_minimal(base_size = 14)
-  }else {
-    p <- ggplot(coords, aes(x = Dim1, y = Dim2, color = group)) +
-          geom_point(size = 2) +
-          scale_color_manual(values = c("steelblue", "tomato", "green", "purple")) +
-          labs(title = title, x = "MDS 1", y = "MDS 2", color = "Group") +
-          theme_minimal(base_size = 14)
-  }
+  palette <- c("steelblue", "tomato", "darkgreen", "purple", "black", "orange", "brown")
+  p <- ggplot(coords, aes(x = Dim1, y = Dim2, color = group)) +
+        geom_point(size = 2) +
+        scale_color_manual(values = palette[seq_len(length(levels(coords$group)))]) +
+        labs(title = title, x = "MDS 1", y = "MDS 2", color = "Group") +
+        theme_minimal(base_size = 14)
 
   
   print(p)
@@ -226,6 +239,14 @@ tree_MDS_comparison_plot <- function(trees_gen, trees_data, true_tree, M_tree = 
   if (!is.null(save_path)) {
     ggsave(filename = paste0("plots/", save_path), plot = p, width = 8, height = 6, dpi = 150)
   }
+
+  invisible(list(
+    plot = p,
+    coords = coords,
+    distance_matrix = D,
+    mds = mds,
+    prop_2d = prop_2d
+  ))
   }
 
 
@@ -380,6 +401,13 @@ matrix_MDS_comparison_plot <- function(matrices, labels, chain_matrices = NULL, 
   if (!is.null(save_path)) {
     ggsave(filename = paste0("plots/", save_path), plot = p, width = 8, height = 6, dpi = 150)
   }
+
+  invisible(list(
+    plot = p,
+    coords = coords,
+    distance_matrix = D,
+    mds = mds
+  ))
 }
 
 
@@ -415,6 +443,13 @@ tree_histogram_comparison_plot <- function(chain_gen, chain_data, M_true_fmat, b
   if (!is.null(save_path)) {
     ggsave(filename = paste0("plots/", save_path), plot = p, width = 8, height = 6, dpi = 150)
   }
+
+  invisible(list(
+    plot = p,
+    df = df,
+    distances_data = distances_data,
+    distances_gen = distances_gen
+  ))
 }
 
 

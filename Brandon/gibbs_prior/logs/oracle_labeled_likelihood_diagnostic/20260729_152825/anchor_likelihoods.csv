@@ -1,0 +1,11 @@
+"quantity","log_likelihood"
+"true_labeled_tree",-3928.505701887
+"upgma_labeled_tree",-3928.1344980422
+"true_F_random_labels_scan_logmeanexp",-4487.14159421276
+"true_F_random_labels_scan_max",-4484.83900911976
+"init_F_random_labels_scan_logmeanexp",-4566.0181079422
+"init_F_random_labels_scan_max",-4563.75435607588
+"true_F_random_labels_refine_logmeanexp",-4235.8081445318
+"true_F_random_labels_refine_max",-4229.59353643338
+"init_F_random_labels_refine_logmeanexp",-4167.82591249473
+"init_F_random_labels_refine_max",-4161.61130439631
