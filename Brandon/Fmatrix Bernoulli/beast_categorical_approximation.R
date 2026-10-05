@@ -28,18 +28,29 @@ save_path_for_plot_function <- function(filename) {
 }
 
 tree_file_candidates <- file.path(
-  "Brandon",
-  "Fmatrix Bernoulli",
-  c("beast_trees_summarized-sequences.trees", "HKY1000Gibbs-sequences.trees")
+  c(
+    file.path(
+      "Brandon", "BEAST Gibbs Approximation", "inputs",
+      "beast_trees_summarized-sequences.trees"
+    ),
+    file.path(
+      "Brandon", "Fmatrix Bernoulli",
+      c("beast_trees_summarized-sequences.trees", "HKY1000Gibbs-sequences.trees")
+    )
+  )
 )
 trees_path <- tree_file_candidates[file.exists(tree_file_candidates)][1]
 if (is.na(trees_path)) {
-  stop("Could not find a BEAST .trees file in Brandon/Fmatrix Bernoulli.")
+  stop("Could not find a BEAST .trees file.")
 }
 
-true_tree_path <- file.path("Brandon", "Fmatrix Bernoulli", "true_tree.newick")
-if (!file.exists(true_tree_path)) {
-  stop("Could not find true tree file: ", true_tree_path)
+true_tree_candidates <- c(
+  file.path("Brandon", "BEAST Gibbs Approximation", "inputs", "true_tree.newick"),
+  file.path("Brandon", "Fmatrix Bernoulli", "true_tree.newick")
+)
+true_tree_path <- true_tree_candidates[file.exists(true_tree_candidates)][1]
+if (is.na(true_tree_path)) {
+  stop("Could not find true tree file.")
 }
 
 true_tree <- read.tree(true_tree_path)

@@ -1,0 +1,2 @@
+"num_replicates","data_mode","num_tips","rate","seq_len","random_label_R","true_beats_upgma_count","upgma_beats_true_count","upgma_beats_true_fraction","mean_upgma_minus_true_labeled_ll","median_upgma_minus_true_labeled_ll","sd_upgma_minus_true_labeled_ll","mean_init_l2_to_true","mean_true_random_logmeanexp_minus_init","median_true_random_logmeanexp_minus_init","mean_true_labeled_minus_true_random_logmeanexp"
+20,"simulate",10,0.01,1000,500,15,5,0.25,-10.1127012575033,-5.31851760539826,16.4051947047414,2.41297227685114,31.8090437652104,28.3040063814742,117.25719299461

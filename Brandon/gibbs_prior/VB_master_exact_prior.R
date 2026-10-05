@@ -340,3 +340,4 @@ print(paste0("L2 distance to initial M: ", distance_Fmat(M_est, M_init, dist = "
 print(paste0("Estimated L2 distance to true M:    ", distance_Fmat(nearby_Fmat(M_est), M_true, dist = "l2")))
 print(paste0("Estimated L2 distance to initial M: ", distance_Fmat(nearby_Fmat(M_est), M_init, dist = "l2")))
 print(paste0("L2 distance initial M to True M: ", distance_Fmat(M_true, M_init, dist = "l2")))
+ 

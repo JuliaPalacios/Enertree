@@ -18,7 +18,7 @@ library(fmatrix)
 num_tips            <- 10
 rate                <- 0.01
 step_size           <- 0.1
-num_samps           <- 2000
+num_samps           <- 200
 num_unif_samples    <- 10000
 num_grad_desc_steps <- 5000
 num_tip_label_iters <- 30

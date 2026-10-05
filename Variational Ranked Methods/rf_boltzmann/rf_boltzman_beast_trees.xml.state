@@ -1,0 +1,18 @@
+<itsabeastystatewerein version='2.0' sample='1000000'>
+<statenode id='Tree.t:rf_sequences_10tip'>(((8:0.047377411101307776,9:0.047377411101307776)13:0.019237587762173353,(1:0.028563396107597637,0:0.028563396107597637)17:0.03805160275588349)12:0.01858770872435675,((((6:0.045828659316676956,7:0.045828659316676956)10:0.005787704058486956,(5:0.01791165625619446,4:0.01791165625619446)16:0.03370470711896945)11:0.007089362627260731,3:0.058705726002424644)15:0.0034228105308092838,2:0.06212853653323393)14:0.02307417105460395)18:0.0</statenode>
+<statenode id='birthRate.t:rf_sequences_10tip'>birthRate.t:rf_sequences_10tip[1 1] (0.0,Infinity): 22.970125371042613 </statenode>
+</itsabeastystatewerein>
+<!--
+{"operators":[
+{"id":"YuleBirthRateScaler.t:rf_sequences_10tip","p":0.7408887698163581,"accept":11453,"reject":27093,"acceptFC":11281,"rejectFC":26758,"rejectIv":0,"rejectOp":0},
+{"id":"YuleModelTreeRootScaler.t:rf_sequences_10tip","p":0.1082744952683647,"accept":8535,"reject":30100,"acceptFC":8528,"rejectFC":29575,"rejectIv":931,"rejectOp":931},
+{"id":"YuleModelUniformOperator.t:rf_sequences_10tip","p":1.0249040616277567,"accept":127379,"reject":257692,"acceptFC":122654,"rejectFC":257078,"rejectIv":0,"rejectOp":0},
+{"id":"YuleModelSubtreeSlide.t:rf_sequences_10tip","p":0.6113529648185587,"accept":32,"reject":191709,"acceptFC":32,"rejectFC":189145,"rejectIv":95755,"rejectOp":95755},
+{"id":"YuleModelNarrow.t:rf_sequences_10tip","p":"NaN","accept":30511,"reject":161563,"acceptFC":30201,"rejectFC":159370,"rejectIv":0,"rejectOp":0},
+{"id":"YuleModelWide.t:rf_sequences_10tip","p":"NaN","accept":355,"reject":37954,"acceptFC":347,"rejectFC":37445,"rejectIv":20514,"rejectOp":20514},
+{"id":"YuleModelWilsonBalding.t:rf_sequences_10tip","p":"NaN","accept":192,"reject":38308,"acceptFC":185,"rejectFC":37797,"rejectIv":11878,"rejectOp":11878},
+{"id":"YuleModelBICEPSEpochTop.t:rf_sequences_10tip","p":0.20107496879533865,"accept":9278,"reject":16540,"acceptFC":9108,"rejectFC":16346,"rejectIv":5777,"rejectOp":5777},
+{"id":"YuleModelBICEPSEpochAll.t:rf_sequences_10tip","p":0.19907161572779353,"accept":9288,"reject":16364,"acceptFC":9117,"rejectFC":16192,"rejectIv":5668,"rejectOp":5668},
+{"id":"YuleModelBICEPSTreeFlex.t:rf_sequences_10tip","p":0.0799746346205501,"accept":11236,"reject":14419,"acceptFC":10918,"rejectFC":14385,"rejectIv":0,"rejectOp":0}
+]}
+-->

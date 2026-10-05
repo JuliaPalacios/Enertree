@@ -1,0 +1,9 @@
+"replicate","quantity","log_likelihood"
+1,"true_labeled_tree",-3928.505701887
+1,"upgma_labeled_tree",-3928.1344980422
+1,"true_F_random_labels_logmeanexp",-4149.6985769638
+1,"true_F_random_labels_max",-4143.48396886538
+1,"true_F_random_labels_meanlog",-4690.53905964942
+1,"init_F_random_labels_logmeanexp",-4317.64489184948
+1,"init_F_random_labels_max",-4311.43075637348
+1,"init_F_random_labels_meanlog",-4689.67922572914
