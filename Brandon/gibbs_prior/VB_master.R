@@ -10,7 +10,12 @@ library(fmatrix)
 #install_github("JuliaPalacios/phylodyn")
 
 
-#source("R/VB_Utils.R")
+# Use local ELBO helpers rather than the installed gradient implementations.
+vb_helper_candidates <- c("VB_ELBO_utils.R",
+                          file.path("Brandon", "gibbs_prior", "VB_ELBO_utils.R"))
+vb_helper_path <- vb_helper_candidates[file.exists(vb_helper_candidates)][1L]
+if (is.na(vb_helper_path)) stop("Run from the repo root or Brandon/gibbs_prior.")
+source(vb_helper_path)
 
 
 
@@ -31,7 +36,7 @@ init_method         <- "upgma"  # "caterpillar" or "upgma"
 init_results <- phylodyn:::generate_true_M_and_data(num_tips, rate = rate, seq_len = 1000)
 
 inter_coal_times <- coalescent.intervals(init_results$M_true_tree)$interval.length
-inter_coal_times[inter_coal_times <= 0.001] <- 0.01
+stopifnot(all(is.finite(inter_coal_times)), all(inter_coal_times > 0))
 coal_times <- cumsum(inter_coal_times)
 
 if (init_method == "upgma") {
@@ -50,17 +55,35 @@ g_est      <- log(0.01)
 # For num_tips in 5..11 the fmatrix package ships F.list<n> with every F-matrix
 # enumerated, so use that exact list instead of sampling.
 flist_name <- paste0("F.list", num_tips)
-samples_uniform <- if (exists(flist_name, mode = "list")) {
+exact_support <- exists(flist_name, mode = "list")
+samples_uniform <- if (exact_support) {
   get(flist_name)
 } else {
-  generate_sample_uniform(num_samps = num_unif_samples, num_tips = num_tips)
+  phylodyn:::generate_sample_uniform(num_samps = num_unif_samples, num_tips = num_tips)
 }
-uniform_cache <- phylodyn:::precompute_tree_chain_distance_cache(samples_uniform)
+uniform_cache <- vb_support_cache(samples_uniform, exact = exact_support)
+if (!exact_support) {
+  message("Using a uniform-proposal approximation to Gibbs moments and log Z; ",
+          "the reported ELBO is approximate.")
+}
 
 # ---- AdaGrad-style gradient descent ----
 M_grads <- list(matrix(step_size, nrow = nrow(M_est), ncol = nrow(M_est)))
 g_grads <- list(step_size)
 elbos2  <- c()
+
+# Initialize the gradient baseline with an independent pilot batch. Later
+# updates use the previous batch's ELBO, never the current batch's mean.
+pilot_samples <- phylodyn:::generate_sample_markov_chain(
+  M = M_est, b = exp(g_est), num_samps = num_samps,
+  burnin = burnin, take_every = take_every
+)
+pilot_state <- vb_gibbs_state(M_est, exp(g_est), uniform_cache)
+reward_baseline <- vb_estimate_gibbs_elbo(
+  data = init_results$sequences, coal_times = coal_times,
+  samples = pilot_samples, M = M_est, beta = exp(g_est), state = pilot_state,
+  num_tip_label_iters = num_tip_label_iters, rate = rate
+)$elbo
 
 start_time <- Sys.time()
 for (i in 1:num_grad_desc_steps) {
@@ -72,60 +95,46 @@ for (i in 1:num_grad_desc_steps) {
     M = M_est, b = exp(g_est),
     num_samps = num_samps, burnin = burnin, take_every = take_every
   )
-  log_Z <- phylodyn:::compute_log_Z_est(beta = exp(g_est), M = M_est, cache = uniform_cache)
-  
+  state <- vb_gibbs_state(M_est, exp(g_est), uniform_cache)
+
   if (!joint) {
-    cache_gibbs <- phylodyn:::precompute_tree_chain_distance_cache(samples)
-    g_up <- estimate_grad_g2(
-      data                = init_results$sequences,
-      coal_times          = coal_times,
-      samples_gibbs       = samples,
-      cache_gibbs         = cache_gibbs,
-      M_est               = M_est,
-      b_est               = exp(g_est),
-      log_Z               = log_Z,
-      num_tip_label_iters = num_tip_label_iters,
-      rate                = rate
+    g_up <- vb_estimate_gibbs_elbo(
+      data = init_results$sequences, coal_times = coal_times,
+      samples = samples, M = M_est, beta = exp(g_est), state = state,
+      num_tip_label_iters = num_tip_label_iters, rate = rate,
+      baseline = reward_baseline
     )
-    g_grad <- g_up$grad
+    reward_baseline <- g_up$elbo
+    g_grad <- g_up$grad_g
     g_grads[[length(g_grads) + 1]] <- g_grad^2
     g_est <- g_est + step_size / sqrt(Reduce('+', g_grads)) * g_grad
     
     samples <- phylodyn:::generate_sample_markov_chain(
-      M = M_est, b = exp(g_est),
-      num_samps = num_samps, burnin = burnin
+      M = M_est, b = exp(g_est), num_samps = num_samps,
+      burnin = burnin, take_every = take_every
     )
-    log_Z <- phylodyn:::compute_log_Z_est(beta = exp(g_est), M = M_est, cache = uniform_cache)
-    
-    M_up <- phylodyn:::estimate_grad_M2(
-      data                = init_results$sequences,
-      coal_times          = coal_times,
-      samples_gibbs       = samples,
-      M_est               = M_est,
-      b_est               = exp(g_est),
-      log_Z               = log_Z,
-      num_tip_label_iters = num_tip_label_iters,
-      rate                = rate
+    state <- vb_gibbs_state(M_est, exp(g_est), uniform_cache)
+    M_up <- vb_estimate_gibbs_elbo(
+      data = init_results$sequences, coal_times = coal_times,
+      samples = samples, M = M_est, beta = exp(g_est), state = state,
+      num_tip_label_iters = num_tip_label_iters, rate = rate,
+      baseline = reward_baseline
     )
-    M_grad <- M_up$grad
+    reward_baseline <- M_up$elbo
+    M_grad <- M_up$grad_M
     M_grads[[length(M_grads) + 1]] <- M_grad^2
     M_est <- M_est + step_size / sqrt(Reduce('+', M_grads)) * M_grad
     elbos2 <- c(elbos2, M_up$elbo)
     print(paste0("ELBO: ", M_up$elbo))
     print(paste0("L2 distance to true M: ", distance_Fmat(M_est, M_true, dist = "l2")))
   } else {
-    cache_gibbs <- phylodyn:::precompute_tree_chain_distance_cache(samples)
-    J_up <- phylodyn:::estimate_grad_M_g(
-      data                = init_results$sequences,
-      coal_times          = coal_times,
-      samples_gibbs       = samples,
-      cache_gibbs         = cache_gibbs,
-      M_est               = M_est,
-      b_est               = exp(g_est),
-      log_Z               = log_Z,
-      num_tip_label_iters = num_tip_label_iters,
-      rate                = rate
+    J_up <- vb_estimate_gibbs_elbo(
+      data = init_results$sequences, coal_times = coal_times,
+      samples = samples, M = M_est, beta = exp(g_est), state = state,
+      num_tip_label_iters = num_tip_label_iters, rate = rate,
+      baseline = reward_baseline
     )
+    reward_baseline <- J_up$elbo
     M_grad <- J_up$grad_M
     M_grads[[length(M_grads) + 1]] <- M_grad^2
     M_est <- M_est + step_size / sqrt(Reduce('+', M_grads)) * M_grad
