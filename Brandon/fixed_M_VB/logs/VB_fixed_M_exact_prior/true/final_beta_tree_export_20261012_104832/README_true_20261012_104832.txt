@@ -1,0 +1,14 @@
+This export was generated from a saved fixed-M VB result RDS.
+The optimizer was not rerun.
+
+Sequences FASTA status: saved
+Fixed tree status: saved
+True tree status: saved
+UPGMA tree status: saved
+Status 'reconstructed' means the file was rebuilt from saved F-matrices and coal_times.
+
+Source result: /Users/brandonmarks/Desktop/Research/Palacios Lab/Untitled/Enertree/Brandon/fixed_M_VB/logs/VB_fixed_M_exact_prior/true/result_20261012_104832.rds
+Fixed M source: true
+Final beta: 0.011739561116903
+Generated tree count: 100000
+Export seed: 42

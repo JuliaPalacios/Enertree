@@ -25,6 +25,10 @@ sequence_file <- "rf_sequences_10tip.fasta"
 
 mutation_rate <- 0.01
 
+# If TRUE, beta is fitted over unique rooted topologies in the pool.
+# If FALSE, every proposal draw is kept as a separate row.
+deduplicate_pool_for_fitting <- TRUE
+
 n_random_pool <- 50000
 n_direct_nni_pool <- 5000
 n_local_pool_per_beta <- 25000
@@ -218,8 +222,11 @@ rooted_topology_key <- function(tree) {
   paste(sort(clades), collapse = "|")
 }
 
-summarize_topology_counts <- function(trees, sources) {
-  keys <- vapply(trees, rooted_topology_key, character(1))
+rooted_topology_keys <- function(trees) {
+  vapply(trees, rooted_topology_key, character(1))
+}
+
+summarize_topology_counts <- function(keys, sources) {
   count_table <- sort(table(keys), decreasing = TRUE)
   source_table <- split(sources, keys)
 
@@ -234,6 +241,26 @@ summarize_topology_counts <- function(trees, sources) {
       },
       character(1)
     )
+  )
+}
+
+make_fitting_pool <- function(trees, sources, keys, deduplicate) {
+  if (!deduplicate) {
+    return(list(
+      trees = trees,
+      sources = sources,
+      keys = keys,
+      n_duplicate_draws_removed = 0
+    ))
+  }
+
+  keep <- !duplicated(keys)
+
+  list(
+    trees = trees[keep],
+    sources = sources[keep],
+    keys = keys[keep],
+    n_duplicate_draws_removed = sum(!keep)
   )
 }
 
@@ -294,7 +321,8 @@ pool_summary_at_beta <- function(beta, rooted_rf, log_likelihood) {
 
   mean_rf <- sum(weights * rooted_rf)
   mean_log_likelihood <- sum(weights * log_likelihood)
-  entropy <- -sum(weights * log(weights))
+  positive_weights <- weights[weights > 0]
+  entropy <- -sum(positive_weights * log(positive_weights))
   elbo <- mean_log_likelihood + entropy
 
   score <- beta * (mean_rf - rooted_rf)
@@ -417,20 +445,29 @@ all_sources <- c(
   local_sources
 )
 
-topology_counts <- summarize_topology_counts(all_trees, all_sources)
+all_topology_keys <- rooted_topology_keys(all_trees)
+topology_counts <- summarize_topology_counts(all_topology_keys, all_sources)
+fitting_pool <- make_fitting_pool(
+  trees = all_trees,
+  sources = all_sources,
+  keys = all_topology_keys,
+  deduplicate = deduplicate_pool_for_fitting
+)
 
 cat("Pool size including duplicate proposal draws:", length(all_trees), "\n")
 cat("Unique rooted topologies in pool:", nrow(topology_counts), "\n")
+cat("Deduplicate pool for fitting:", deduplicate_pool_for_fitting, "\n")
+cat("Fitting pool size:", length(fitting_pool$trees), "\n")
 
 pool_scores <- score_pool(
-  trees = all_trees,
-  sources = all_sources,
+  trees = fitting_pool$trees,
+  sources = fitting_pool$sources,
   center_tree = center_tree_fixed,
   sequences = sequences,
   mutation_rate = mutation_rate
 )
 
-write_tree_sample(all_trees, output_pool_tree_file)
+write_tree_sample(fitting_pool$trees, output_pool_tree_file)
 write.csv(pool_scores, output_pool_score_file, row.names = FALSE)
 write.csv(topology_counts, output_topology_count_file, row.names = FALSE)
 
@@ -453,12 +490,12 @@ fit <- fit_beta_by_pool_elbo(
 
 weights_at_fit <- softmax(-fit$beta * pool_scores$rooted_rf)
 sample_indices <- sample.int(
-  n = length(all_trees),
+  n = length(fitting_pool$trees),
   size = final_sample_size,
   replace = TRUE,
   prob = weights_at_fit
 )
-sampled_trees <- all_trees[sample_indices]
+sampled_trees <- fitting_pool$trees[sample_indices]
 write_tree_sample(sampled_trees, output_sample_tree_file)
 
 fit$settings <- list(
@@ -477,9 +514,13 @@ fit$settings <- list(
   beta_grid_size = beta_grid_size,
   nni_move_options = nni_move_options,
   nni_move_probabilities = nni_move_probabilities,
+  deduplicate_pool_for_fitting = deduplicate_pool_for_fitting,
   pool_size_including_duplicate_proposal_draws = length(all_trees),
+  fitting_pool_size = length(fitting_pool$trees),
+  duplicate_proposal_draws_removed_before_fitting =
+    fitting_pool$n_duplicate_draws_removed,
   unique_rooted_topologies = nrow(topology_counts),
-  fitting_pool_uses_duplicate_proposal_draws = TRUE
+  fitting_pool_uses_duplicate_proposal_draws = !deduplicate_pool_for_fitting
 )
 
 saveRDS(fit, output_fit_file)

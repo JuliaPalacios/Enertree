@@ -14,7 +14,7 @@ suppressPackageStartupMessages({
 #   2. number of cherries
 
 true_tree_file <- "rf_true_tree_10tip.newick"
-rf_beta_tree_file <- "rooted_rf_boltzmann_estimated_beta_100000_thinned_trees.newick"
+rf_beta_tree_file <- "fixed_pool_estimated_beta_100000_trees.newick"
 beast_tree_file <- "rf_boltzman_beast_trees-rf_sequences_10tip.trees"
 
 output_summary_file <- "rooted_rf_vs_beast_tree_summary.csv"
