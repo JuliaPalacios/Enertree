@@ -1,0 +1,9 @@
+<itsabeastystatewerein version='2.0' sample='10000000'>
+<statenode id='tree'>(((4:4.8485895762,(0:4.38592953,(1:2.6548412860000004,2:2.6548412860000004)6:1.731088244)7:0.4626600461999999)8:0.09512872616000045,5:4.943718302360001)9:1.4754082779999997,3:6.41912658036)10:0.0</statenode>
+</itsabeastystatewerein>
+<!--
+{"operators":[
+{"id":"narrowExchange","p":"NaN","accept":849551,"reject":7483773,"acceptFC":0,"rejectFC":0,"rejectIv":0,"rejectOp":0},
+{"id":"wideExchange","p":"NaN","accept":26011,"reject":1640666,"acceptFC":0,"rejectFC":0,"rejectIv":925469,"rejectOp":925469}
+]}
+-->

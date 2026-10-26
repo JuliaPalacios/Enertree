@@ -1,0 +1,4 @@
+"sample","chain","n_draws","rf_ess","cherries_ess","min_clade_ess","median_clade_ess","n_varying_clades"
+"A-matrix VI","1",500,500,500,500,500,9
+"A-matrix VI","2",500,500,500,500,500,8
+"BEAST","1",10001,10001,10001,9201.5793837081,10001,12

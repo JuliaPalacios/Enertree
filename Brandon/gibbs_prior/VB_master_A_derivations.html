@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.24">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>How VB_master_A.R learns a distribution over trees</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="VB_master_A_derivations_files/libs/clipboard/clipboard.min.js"></script>
+<script src="VB_master_A_derivations_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="VB_master_A_derivations_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="VB_master_A_derivations_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="VB_master_A_derivations_files/libs/quarto-html/popper.min.js"></script>
+<script src="VB_master_A_derivations_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="VB_master_A_derivations_files/libs/quarto-html/anchor.min.js"></script>
+<link href="VB_master_A_derivations_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="VB_master_A_derivations_files/libs/quarto-html/quarto-syntax-highlighting-dc55a5b9e770e841cd82e46aadbfb9b0.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="VB_master_A_derivations_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="VB_master_A_derivations_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="VB_master_A_derivations_files/libs/bootstrap/bootstrap-d6a003b94517c951b2d65075d42fb01b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#a-tree-its-matrix-and-its-score" id="toc-a-tree-its-matrix-and-its-score" class="nav-link active" data-scroll-target="#a-tree-its-matrix-and-its-score"><span class="header-section-number">1</span> A tree, its matrix, and its score</a></li>
+  <li><a href="#the-variational-distribution-and-z" id="toc-the-variational-distribution-and-z" class="nav-link" data-scroll-target="#the-variational-distribution-and-z"><span class="header-section-number">2</span> The variational distribution and <span class="math inline">\(Z\)</span></a>
+  <ul class="collapse">
+  <li><a href="#is-there-a-fixed-a-matrix-center" id="toc-is-there-a-fixed-a-matrix-center" class="nav-link" data-scroll-target="#is-there-a-fixed-a-matrix-center"><span class="header-section-number">2.1</span> Is there a fixed A-matrix center?</a></li>
+  <li><a href="#why-the-root-and-bottom-weights-are-normalized" id="toc-why-the-root-and-bottom-weights-are-normalized" class="nav-link" data-scroll-target="#why-the-root-and-bottom-weights-are-normalized"><span class="header-section-number">2.2</span> Why the root and bottom weights are normalized</a></li>
+  </ul></li>
+  <li><a href="#why-sampling-does-not-require-a-numerical-z" id="toc-why-sampling-does-not-require-a-numerical-z" class="nav-link" data-scroll-target="#why-sampling-does-not-require-a-numerical-z"><span class="header-section-number">3</span> Why sampling does not require a numerical <span class="math inline">\(Z\)</span></a></li>
+  <li><a href="#differentiate-one-tree-probability-one-parameter-at-a-time" id="toc-differentiate-one-tree-probability-one-parameter-at-a-time" class="nav-link" data-scroll-target="#differentiate-one-tree-probability-one-parameter-at-a-time"><span class="header-section-number">4</span> Differentiate one tree probability, one parameter at a time</a></li>
+  <li><a href="#why-a-covariance-appears" id="toc-why-a-covariance-appears" class="nav-link" data-scroll-target="#why-a-covariance-appears"><span class="header-section-number">5</span> Why a covariance appears</a></li>
+  <li><a href="#derive-the-elbo-gradient" id="toc-derive-the-elbo-gradient" class="nav-link" data-scroll-target="#derive-the-elbo-gradient"><span class="header-section-number">6</span> Derive the ELBO gradient</a></li>
+  <li><a href="#what-the-script-estimates-by-monte-carlo" id="toc-what-the-script-estimates-by-monte-carlo" class="nav-link" data-scroll-target="#what-the-script-estimates-by-monte-carlo"><span class="header-section-number">7</span> What the script estimates by Monte Carlo</a>
+  <ul class="collapse">
+  <li><a href="#why-run-two-chains" id="toc-why-run-two-chains" class="nav-link" data-scroll-target="#why-run-two-chains"><span class="header-section-number">7.1</span> Why run two chains?</a></li>
+  </ul></li>
+  <li><a href="#why-the-printed-elbo-needs-a-separate-z-estimate" id="toc-why-the-printed-elbo-needs-a-separate-z-estimate" class="nav-link" data-scroll-target="#why-the-printed-elbo-needs-a-separate-z-estimate"><span class="header-section-number">8</span> Why the printed ELBO needs a separate <span class="math inline">\(Z\)</span> estimate</a>
+  <ul class="collapse">
+  <li><a href="#reference-ess-concentration-of-the-uniform-reference-weights" id="toc-reference-ess-concentration-of-the-uniform-reference-weights" class="nav-link" data-scroll-target="#reference-ess-concentration-of-the-uniform-reference-weights"><span class="header-section-number">8.1</span> <code>reference ESS</code>: concentration of the uniform-reference weights</a></li>
+  <li><a href="#min-ess-autocorrelation-of-the-mcmc-likelihood-traces" id="toc-min-ess-autocorrelation-of-the-mcmc-likelihood-traces" class="nav-link" data-scroll-target="#min-ess-autocorrelation-of-the-mcmc-likelihood-traces"><span class="header-section-number">8.2</span> <code>min ESS</code>: autocorrelation of the MCMC likelihood traces</a></li>
+  <li><a href="#the-other-printed-chain-diagnostics" id="toc-the-other-printed-chain-diagnostics" class="nav-link" data-scroll-target="#the-other-printed-chain-diagnostics"><span class="header-section-number">8.3</span> The other printed chain diagnostics</a></li>
+  </ul></li>
+  <li><a href="#where-these-steps-appear-in-the-script" id="toc-where-these-steps-appear-in-the-script" class="nav-link" data-scroll-target="#where-these-steps-appear-in-the-script"><span class="header-section-number">9</span> Where these steps appear in the script</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">How VB_master_A.R learns a distribution over trees</h1>
+<p class="subtitle lead">A step-by-step derivation of the sampler, gradient, and diagnostics</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>This note explains the inference in <a href="VB_master_A.R"><code>VB_master_A.R</code></a>. It uses the same notation as the script and distinguishes <strong>exact mathematical quantities</strong> from their <strong>Monte Carlo estimates</strong>. The script fits a distribution over labeled, ranked tree topologies while holding the coalescent times fixed.</p>
+<section id="a-tree-its-matrix-and-its-score" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="a-tree-its-matrix-and-its-score"><span class="header-section-number">1</span> A tree, its matrix, and its score</h2>
+<p>Let <span class="math inline">\(n\)</span> be the number of named taxa and let <span class="math inline">\(\mathcal A_n\)</span> be the set of valid binary A matrices. A valid <span class="math inline">\(A\in\mathcal A_n\)</span> specifies one <strong>labeled, ranked tree topology</strong>: columns identify taxa, and rows record the clade produced by each successive merger. The youngest merger is in the bottom row; the root is in the top row. For example,</p>
+<pre class="text"><code>             a b c d
+root         1 1 1 1
+second merge 0 0 1 1   {c,d}
+first merge  1 1 0 0   {a,b}</code></pre>
+<p>The branch lengths come from a separate, fixed vector of coalescent times <span class="math inline">\(\tau\)</span>. Thus <span class="math inline">\(A\)</span> determines a ranked topology, while <span class="math inline">\((A,\tau)\)</span> determines the timed tree used to calculate a sequence likelihood. In this setting, <span class="math inline">\(A\)</span> also determines its unlabeled F matrix; several labeled A matrices can map to the same F matrix.</p>
+<p>The fitted parameter <span class="math inline">\(\Theta\)</span> has the same dimensions as <span class="math inline">\(A\)</span>. It is a matrix of <strong>weights</strong>, not itself a binary tree. Define the score</p>
+<p><span class="math display">\[
+s_\Theta(A)=\langle\Theta,A\rangle
+=\sum_{i,j}\Theta_{ij}A_{ij}.
+\]</span></p>
+<p>A larger score means a larger <em>relative</em> weight. An individual <span class="math inline">\(\Theta_{ij}\)</span> is not an independent probability that <span class="math inline">\(A_{ij}=1\)</span>, because the entries of a valid <span class="math inline">\(A\)</span> must fit together to form a tree.</p>
+</section>
+<section id="the-variational-distribution-and-z" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="the-variational-distribution-and-z"><span class="header-section-number">2</span> The variational distribution and <span class="math inline">\(Z\)</span></h2>
+<p>The exact variational distribution is</p>
+<p><span class="math display">\[
+q_\Theta(A)
+=\frac{\exp\{s_\Theta(A)\}}{Z(\Theta)},
+\qquad
+Z(\Theta)=\sum_{B\in\mathcal A_n}\exp\{s_\Theta(B)\}.
+\]</span></p>
+<p><span class="math inline">\(Z(\Theta)\)</span> makes all tree probabilities sum to one. <strong>It changes whenever <span class="math inline">\(\Theta\)</span> changes.</strong> For <span class="math inline">\(n=10\)</span>, the support contains</p>
+<p><span class="math display">\[
+|\mathcal A_{10}|
+=\prod_{k=2}^{10}\binom{k}{2}
+=\frac{10!\,9!}{2^9}
+=2{,}571{,}912{,}000
+\]</span></p>
+<p>labeled, ranked trees. Directly summing all their weights is therefore expensive. For <span class="math inline">\(n=6\)</span>, the analogous count is <span class="math inline">\(2{,}700\)</span>; direct enumeration is feasible.</p>
+<section id="is-there-a-fixed-a-matrix-center" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="is-there-a-fixed-a-matrix-center"><span class="header-section-number">2.1</span> Is there a fixed A-matrix center?</h3>
+<p>The script builds an initial tree <span class="math inline">\(A_0\)</span> and sets <span class="math inline">\(\Theta_0=\beta_{\mathrm{init}}(2A_0-1)\)</span>. It then <strong>updates <span class="math inline">\(\Theta\)</span></strong>, so <span class="math inline">\(A_0\)</span> is only an initialization. The fitted distribution can place mass on many A matrices and many topologies. The script does not estimate a separate <span class="math inline">\(\beta\)</span> after initialization.</p>
+<p>The connection to a squared-distance center <span class="math inline">\(C\)</span> follows because every entry of a valid <span class="math inline">\(A\)</span> is binary, so <span class="math inline">\(A_{ij}^2=A_{ij}\)</span>:</p>
+<p><span class="math display">\[
+\begin{aligned}
+-\beta\|A-C\|_F^2
+&amp;=-\beta\sum_{i,j}(A_{ij}-C_{ij})^2\\
+&amp;=\sum_{i,j}\beta(2C_{ij}-1)A_{ij}
+  -\beta\|C\|_F^2.
+\end{aligned}
+\]</span></p>
+<p>The last term is the same for every <span class="math inline">\(A\)</span> and cancels in <span class="math inline">\(q\)</span>. Hence <span class="math inline">\(\Theta=\beta(2C-1)\)</span> gives the same distribution. The reported <code>center_at_beta_1 = (Theta + 1)/2</code> sets <span class="math inline">\(\beta=1\)</span> as a way to display the fitted weights. This continuous <span class="math inline">\(C\)</span> need not be a valid binary A matrix.</p>
+</section>
+<section id="why-the-root-and-bottom-weights-are-normalized" class="level3" data-number="2.2">
+<h3 data-number="2.2" class="anchored" data-anchor-id="why-the-root-and-bottom-weights-are-normalized"><span class="header-section-number">2.2</span> Why the root and bottom weights are normalized</h3>
+<p>Every valid <span class="math inline">\(A\)</span> has <span class="math inline">\(n\)</span> ones in its root row and exactly two ones in its bottom row. Setting all root-row weights to zero subtracts the same score from every tree. Subtracting a common value <span class="math inline">\(c\)</span> from every bottom-row weight subtracts <span class="math inline">\(2c\)</span> from every tree’s score. Neither operation changes relative weights or <span class="math inline">\(q_\Theta\)</span>. The code uses these freedoms to set the root row to zero and the <strong>mean</strong> bottom-row weight to zero.</p>
+<p>Middle rows cannot generally be centered this way: their numbers of ones depend on the tree. With four taxa, the second merger may create a two-taxon clade or a three-taxon clade. A common shift of that row’s weights would change those trees’ relative scores.</p>
+</section>
+</section>
+<section id="why-sampling-does-not-require-a-numerical-z" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="why-sampling-does-not-require-a-numerical-z"><span class="header-section-number">3</span> Why sampling does not require a numerical <span class="math inline">\(Z\)</span></h2>
+<p>For two trees <span class="math inline">\(A\)</span> and <span class="math inline">\(B\)</span>, the ratio of their probabilities is</p>
+<p><span class="math display">\[
+\frac{q_\Theta(B)}{q_\Theta(A)}
+=\frac{\exp\{s_\Theta(B)\}/Z(\Theta)}
+       {\exp\{s_\Theta(A)\}/Z(\Theta)}
+=\exp\{s_\Theta(B)-s_\Theta(A)\}.
+\]</span></p>
+<p>The normalizer cancels because the two trees are compared at the <strong>same</strong> <span class="math inline">\(\Theta\)</span>. Metropolis–Hastings uses this ratio, plus a proposal-probability correction when the proposal is asymmetric. The sampler can therefore draw from <span class="math inline">\(q_\Theta\)</span> using relative weights. It does not need each tree’s normalized probability in advance.</p>
+<p>This does <strong>not</strong> mean <span class="math inline">\(Z\)</span> is mathematically irrelevant. The distribution of the samples still depends on <span class="math inline">\(\Theta\)</span> and on its corresponding <span class="math inline">\(Z\)</span>; the algorithm simply avoids calculating <span class="math inline">\(Z\)</span> explicitly.</p>
+</section>
+<section id="differentiate-one-tree-probability-one-parameter-at-a-time" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="differentiate-one-tree-probability-one-parameter-at-a-time"><span class="header-section-number">4</span> Differentiate one tree probability, one parameter at a time</h2>
+<p>Choose one entry <span class="math inline">\(\theta=\Theta_{ij}\)</span> and write <span class="math inline">\(x(A)=A_{ij}\)</span>. Hold all other entries of <span class="math inline">\(\Theta\)</span> fixed. Let</p>
+<p><span class="math display">\[
+w(A)=\exp\{s_\Theta(A)\},
+\qquad Z=\sum_B w(B),
+\qquad q_\Theta(A)=\frac{w(A)}{Z}.
+\]</span></p>
+<p>First, <span class="math inline">\(\partial s_\Theta(A)/\partial\theta=x(A)\)</span>. By the chain rule,</p>
+<p><span class="math display">\[
+\frac{\partial w(A)}{\partial\theta}=w(A)x(A).
+\]</span></p>
+<p>Next, differentiate the sum defining <span class="math inline">\(Z\)</span>:</p>
+<p><span class="math display">\[
+\begin{aligned}
+\frac{\partial Z}{\partial\theta}
+&amp;=\sum_B w(B)x(B)\\
+&amp;=Z\sum_B q_\Theta(B)x(B)\\
+&amp;=Z\,\mathbb E_q[x].
+\end{aligned}
+\]</span></p>
+<p>Define <span class="math inline">\(\mu=\mathbb E_q[x]\)</span>. The quotient rule now gives</p>
+<p><span class="math display">\[
+\begin{aligned}
+\frac{\partial q_\Theta(A)}{\partial\theta}
+&amp;=\frac{w'(A)Z-w(A)Z'}{Z^2}\\
+&amp;=\frac{w(A)x(A)Z-w(A)Z\mu}{Z^2}\\
+&amp;=q_\Theta(A)\bigl(x(A)-\mu\bigr).
+\end{aligned}
+\]</span></p>
+<p>The <span class="math inline">\(x(A)\)</span> term reflects the change in <strong>this tree’s</strong> weight. The <span class="math inline">\(-\mu\)</span> term reflects the change in the <strong>total</strong> weight. It ensures the derivatives of all tree probabilities add to zero.</p>
+<p>We can also divide the preceding expression by <span class="math inline">\(q_\Theta(A)\)</span>:</p>
+<p><span class="math display">\[
+\frac{\partial\log q_\Theta(A)}{\partial\theta}
+=x(A)-\mathbb E_q[x],
+\qquad
+\frac{\partial\log Z}{\partial\theta}=\mathbb E_q[x].
+\]</span></p>
+<p>The derivative of <span class="math inline">\(\log Z\)</span> is an expectation. We can estimate that expectation from samples <strong>without calculating the value of <span class="math inline">\(\log Z\)</span></strong>.</p>
+</section>
+<section id="why-a-covariance-appears" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="why-a-covariance-appears"><span class="header-section-number">5</span> Why a covariance appears</h2>
+<p>Suppose <span class="math inline">\(f(A)\)</span> is a fixed value associated with each tree. Its expectation is a probability-weighted average:</p>
+<p><span class="math display">\[
+\mathbb E_q[f]=\sum_A q_\Theta(A)f(A).
+\]</span></p>
+<p>Only the probabilities change when <span class="math inline">\(\theta\)</span> changes. Using the derivative just derived,</p>
+<p><span class="math display">\[
+\begin{aligned}
+\frac{\partial\mathbb E_q[f]}{\partial\theta}
+&amp;=\sum_A f(A)q_\Theta(A)\bigl(x(A)-\mu\bigr)\\
+&amp;=\mathbb E_q[fx]-\mathbb E_q[f]\mathbb E_q[x]\\
+&amp;=\operatorname{Cov}_q(x,f).
+\end{aligned}
+\]</span></p>
+<p>The covariance measures whether trees with <span class="math inline">\(x(A)=1\)</span> tend to have above- or below-average <span class="math inline">\(f(A)\)</span>. It appears because changing <span class="math inline">\(\theta\)</span> moves probability mass toward trees with that feature and away from trees without it.</p>
+</section>
+<section id="derive-the-elbo-gradient" class="level2" data-number="6">
+<h2 data-number="6" class="anchored" data-anchor-id="derive-the-elbo-gradient"><span class="header-section-number">6</span> Derive the ELBO gradient</h2>
+<p>Let <span class="math inline">\(Y\)</span> denote the sequences and let <span class="math inline">\(\tau\)</span> denote the fixed coalescent times. Define the sequence log likelihood</p>
+<p><span class="math display">\[
+\ell(A)=\log p(Y\mid A,\tau).
+\]</span></p>
+<p>The script uses a uniform prior over <span class="math inline">\(\mathcal A_n\)</span>, so <span class="math inline">\(\log p(A)=-\log|\mathcal A_n|\)</span>. The exact ELBO is</p>
+<p><span class="math display">\[
+\begin{aligned}
+\mathcal L(\Theta)
+&amp;=\mathbb E_q[\ell(A)+\log p(A)-\log q_\Theta(A)]\\
+&amp;=\mathbb E_q[\ell(A)]-\log|\mathcal A_n|
+  +\log Z(\Theta)-\mathbb E_q[s_\Theta(A)].
+\end{aligned}
+\]</span></p>
+<p>Differentiate with respect to <span class="math inline">\(\theta=\Theta_{ij}\)</span>, again using <span class="math inline">\(x(A)=A_{ij}\)</span>:</p>
+<ol type="1">
+<li><p>The likelihood does not explicitly depend on <span class="math inline">\(\theta\)</span>, so <span class="math inline">\(\partial\mathbb E_q[\ell]/\partial\theta
+  =\operatorname{Cov}_q(x,\ell)\)</span>.</p></li>
+<li><p>The prior term is constant, so its derivative is zero.</p></li>
+<li><p><span class="math inline">\(\partial\log Z/\partial\theta=\mathbb E_q[x]\)</span>.</p></li>
+<li><p>The term <span class="math inline">\(\mathbb E_q[s_\Theta(A)]\)</span> depends on <span class="math inline">\(\theta\)</span> in <strong>two places</strong>: changing <span class="math inline">\(\theta\)</span> changes the probability <span class="math inline">\(q_\Theta(A)\)</span> of each tree, and it changes that tree’s score <span class="math inline">\(s_\Theta(A)\)</span>. Start by writing the expectation as a sum, then apply the product rule to its two factors:</p>
+<p><span class="math display">\[
+\begin{aligned}
+\frac{\partial}{\partial\theta}\mathbb E_q[s_\Theta(A)]
+&amp;=\frac{\partial}{\partial\theta}
+  \sum_A q_\Theta(A)s_\Theta(A)\\
+&amp;=\sum_A \frac{\partial q_\Theta(A)}{\partial\theta}s_\Theta(A)
+  +\sum_A q_\Theta(A)\frac{\partial s_\Theta(A)}{\partial\theta}\\
+&amp;=\sum_A q_\Theta(A)\bigl(x(A)-\mu\bigr)s_\Theta(A)
+  +\sum_A q_\Theta(A)x(A)\\
+&amp;=\bigl\{\mathbb E_q[xs_\Theta]-\mathbb E_q[x]\mathbb E_q[s_\Theta]\bigr\}
+  +\mathbb E_q[x]\\
+&amp;=\operatorname{Cov}_q(x,s_\Theta)+\mathbb E_q[x],
+\end{aligned}
+\]</span></p>
+<p>where <span class="math inline">\(\mu=\mathbb E_q[x]\)</span>. The <strong>first sum</strong> is the effect of moving probability between trees, so it becomes a covariance. The <strong>second sum</strong> is the direct effect of changing each tree’s score, because <span class="math inline">\(\partial s_\Theta(A)/\partial\theta=x(A)\)</span>. Both effects are needed when differentiating an expectation whose integrand also depends on <span class="math inline">\(\theta\)</span>.</p></li>
+</ol>
+<p>Therefore,</p>
+<p><span class="math display">\[
+\begin{aligned}
+\frac{\partial\mathcal L}{\partial\theta}
+&amp;=\operatorname{Cov}_q(x,\ell)
+  +\mathbb E_q[x]
+  -\bigl\{\mathbb E_q[x]+\operatorname{Cov}_q(x,s_\Theta)\bigr\}\\
+&amp;=\operatorname{Cov}_q\bigl(x,\ell-s_\Theta\bigr).
+\end{aligned}
+\]</span></p>
+<p>The <span class="math inline">\(\mathbb E_q[x]\)</span> terms cancel. <strong><span class="math inline">\(Z\)</span> was differentiated; its contribution canceled another contribution.</strong> Writing the result for every entry at once,</p>
+<p><span class="math display">\[
+\boxed{\displaystyle
+\nabla_\Theta\mathcal L
+=\operatorname{Cov}_{q_\Theta}
+  \left(A,\log p(Y\mid A,\tau)-\langle\Theta,A\rangle\right).}
+\]</span></p>
+<p>The <span class="math inline">\(-s_\Theta(A)\)</span> term comes from entropy. If the gradient contained only sequence likelihood, it would omit that part of the variational objective.</p>
+</section>
+<section id="what-the-script-estimates-by-monte-carlo" class="level2" data-number="7">
+<h2 data-number="7" class="anchored" data-anchor-id="what-the-script-estimates-by-monte-carlo"><span class="header-section-number">7</span> What the script estimates by Monte Carlo</h2>
+<p>The covariance above is an <strong>exact mathematical expectation</strong> under <span class="math inline">\(q_\Theta\)</span>. The script approximates it with MCMC draws. For one coordinate, write</p>
+<p><span class="math display">\[
+x_k=A_{ij}^{(k)},
+\qquad
+r_k=\ell(A^{(k)})-s_\Theta(A^{(k)}).
+\]</span></p>
+<p>The Monte Carlo calculation is conceptually</p>
+<p><span class="math display">\[
+\widehat{\operatorname{Cov}}(x,r)
+=\frac{1}{m}\sum_{k=1}^m(x_k-\bar x)(r_k-\bar r),
+\]</span></p>
+<p>with a finite-sample convention chosen by the package helper. Likewise,</p>
+<p><span class="math display">\[
+\mathbb E_q[A_{ij}]\ \approx\ \bar x
+=\frac{1}{m}\sum_{k=1}^m A_{ij}^{(k)}.
+\]</span></p>
+<section id="why-run-two-chains" class="level3" data-number="7.1">
+<h3 data-number="7.1" class="anchored" data-anchor-id="why-run-two-chains"><span class="header-section-number">7.1</span> Why run two chains?</h3>
+<p>There is <strong>one</strong> fitted <span class="math inline">\(\Theta\)</span>, shared by both chains. By default, chain 1 starts at the UPGMA-derived <span class="math inline">\(A_0\)</span>, while chain 2 starts at a uniformly drawn tree. Each chain retains <code>num_samps = 200</code> trees per iteration. The chains are run by <code>lapply()</code>, so “two chains” does not mean two parallel R processes or two separately fitted models.</p>
+<p>For each chain <span class="math inline">\(c\)</span>, the script requests a covariance-gradient estimate <span class="math inline">\(\widehat g_c\)</span> from <code>phylodyn:::a_vi_covariance_gradient()</code>. It updates the one <span class="math inline">\(\Theta\)</span> using their average,</p>
+<p><span class="math display">\[
+\widehat g=\frac{\widehat g_1+\widehat g_2}{2}.
+\]</span></p>
+<p>It also pools the two sets of trees for the displayed mean A matrix, mean log likelihood, entropy estimate, and final sampled-tree summary. After an iteration, each chain’s last tree becomes that chain’s starting tree for the next iteration. Running from different starts helps reveal whether the sampler is stuck in different regions: the code compares the chains’ mean A-matrix entries. It also provides more draws for the gradient. Two chains do <strong>not</strong> guarantee that either chain has explored the target distribution well.</p>
+<p>Because draws within a chain are correlated, 200 retained trees do not necessarily contain as much information as 200 independent trees.</p>
+<p>The parameter update is an AdaGrad-style step: it scales each coordinate’s gradient by the accumulated squared gradients for that coordinate. No estimate of <span class="math inline">\(Z\)</span> enters that update.</p>
+</section>
+</section>
+<section id="why-the-printed-elbo-needs-a-separate-z-estimate" class="level2" data-number="8">
+<h2 data-number="8" class="anchored" data-anchor-id="why-the-printed-elbo-needs-a-separate-z-estimate"><span class="header-section-number">8</span> Why the printed ELBO needs a separate <span class="math inline">\(Z\)</span> estimate</h2>
+<p>The gradient avoids the <em>value</em> of <span class="math inline">\(Z\)</span>, but entropy and the numerical ELBO still contain <span class="math inline">\(\log Z\)</span>. The script takes <span class="math inline">\(R\)</span> uniform reference draws <span class="math inline">\(U_1,\ldots,U_R\)</span> from <span class="math inline">\(\mathcal A_n\)</span> and uses</p>
+<p><span class="math display">\[
+\widehat Z_{\mathrm{ref}}(\Theta)
+=\frac{|\mathcal A_n|}{R}\sum_{r=1}^R e^{s_\Theta(U_r)},
+\qquad
+\widehat{\log Z}_{\mathrm{ref}}=\log\widehat Z_{\mathrm{ref}}.
+\]</span></p>
+<p>The implementation evaluates this expression with a maximum-score offset to avoid numerical overflow. It then reports</p>
+<p><span class="math display">\[
+\widehat H
+=\widehat{\log Z}_{\mathrm{ref}}
+-\frac{1}{m}\sum_{k=1}^m s_\Theta(A^{(k)}),
+\qquad
+\widehat{\mathcal L}
+=\overline\ell-\log|\mathcal A_n|+\widehat H.
+\]</span></p>
+<p>These are <strong>diagnostics</strong>, not inputs to the gradient update. In contrast, the exact entropy is always nonnegative because</p>
+<p><span class="math display">\[
+H(q)=-\sum_A q(A)\log q(A)\ge 0.
+\]</span></p>
+<section id="reference-ess-concentration-of-the-uniform-reference-weights" class="level3" data-number="8.1">
+<h3 data-number="8.1" class="anchored" data-anchor-id="reference-ess-concentration-of-the-uniform-reference-weights"><span class="header-section-number">8.1</span> <code>reference ESS</code>: concentration of the uniform-reference weights</h3>
+<p>For each of the <span class="math inline">\(R=10{,}000\)</span> uniform reference trees by default, the code evaluates <span class="math inline">\(s_r=s_\Theta(U_r)\)</span>. It converts these to normalized weights</p>
+<p><span class="math display">\[
+\widetilde w_r
+=\frac{e^{s_r}}{\sum_{t=1}^R e^{s_t}},
+\qquad
+\mathrm{ESS}_{\mathrm{ref}}
+=\frac{1}{\sum_{r=1}^R\widetilde w_r^2}.
+\]</span></p>
+<p>The implementation subtracts <span class="math inline">\(\max_r s_r\)</span> inside the exponentials for numerical stability; this does not change <span class="math inline">\(\widetilde w_r\)</span>. If all <span class="math inline">\(R\)</span> weights are equal, <span class="math inline">\(\widetilde w_r=1/R\)</span> and reference ESS is <span class="math inline">\(R\)</span>. If one weight dominates, reference ESS approaches 1. This number measures <strong>importance-weight concentration</strong>, not autocorrelation in an MCMC chain. A value of 1.5 out of 10,000 says that the uniform reference pool has very poor coverage of the trees important to the current <span class="math inline">\(q_\Theta\)</span>.</p>
+</section>
+<section id="min-ess-autocorrelation-of-the-mcmc-likelihood-traces" class="level3" data-number="8.2">
+<h3 data-number="8.2" class="anchored" data-anchor-id="min-ess-autocorrelation-of-the-mcmc-likelihood-traces"><span class="header-section-number">8.2</span> <code>min ESS</code>: autocorrelation of the MCMC likelihood traces</h3>
+<p>For each chain <span class="math inline">\(c\)</span>, the script forms the <span class="math inline">\(m=200\)</span> retained log likelihoods <span class="math inline">\(\ell_{c,1},\ldots,\ell_{c,m}\)</span> and calls <code>coda::effectiveSize()</code> on <strong>that chain’s likelihood vector</strong>. In the installed <code>coda</code> version, the estimate has the form</p>
+<p><span class="math display">\[
+\widehat{\mathrm{ESS}}_c
+=m\,\frac{\widehat{\operatorname{Var}}(\ell_c)}
+           {\widehat S_c(0)},
+\]</span></p>
+<p>where <span class="math inline">\(\widehat S_c(0)\)</span> is an autoregressive estimate of the likelihood trace’s spectral density at frequency zero. Informally, it estimates how many <em>independent</em> likelihood observations would give comparable precision for the chain’s mean likelihood. Positive serial correlation usually makes this smaller than <span class="math inline">\(m\)</span>; negative correlation can make an ESS estimate exceed <span class="math inline">\(m\)</span>. See the <a href="https://cran.r-project.org/web/packages/coda/coda.pdf">coda package documentation</a> for the method.</p>
+<p>The printed <strong><code>min ESS</code> is <span class="math inline">\(\min_c\widehat{\mathrm{ESS}}_c\)</span></strong>, the smaller of the two separate estimates, <strong>not</strong> an ESS computed from all 400 pooled trees. If a chain’s likelihoods are all identical, the script assigns it ESS 0. If <code>coda</code> is unavailable, this diagnostic becomes <code>NA</code>.</p>
+<p>This ESS applies <strong>only to the log-likelihood statistic</strong>. It can look reasonable even if a chain misses important tree topologies. It is also calculated separately at each iteration, when <span class="math inline">\(\Theta\)</span> has a different value.</p>
+</section>
+<section id="the-other-printed-chain-diagnostics" class="level3" data-number="8.3">
+<h3 data-number="8.3" class="anchored" data-anchor-id="the-other-printed-chain-diagnostics"><span class="header-section-number">8.3</span> The other printed chain diagnostics</h3>
+<ul>
+<li><strong><code>chain difference</code></strong>: for each A-matrix entry, compare its sample mean between chains; print the largest absolute difference. Smaller is reassuring, but both chains can still miss the same region.</li>
+<li><strong><code>accept</code></strong>: average across chains of the fraction of proposed MCMC tree moves accepted. It is not an ESS.</li>
+</ul>
+<p>In the example <span class="math inline">\(n=10\)</span> run discussed with this note, iteration 300 printed an estimated ELBO of <span class="math inline">\(-4101.537\)</span>, a mean log likelihood of <span class="math inline">\(-4073.165\)</span>, and reference ESS of <span class="math inline">\(1.5\)</span> out of 10,000. Since <span class="math inline">\(\log|\mathcal A_{10}|\approx21.668\)</span>, these values imply</p>
+<p><span class="math display">\[
+\widehat H
+=-4101.537-(-4073.165)+21.668
+\approx-6.704.
+\]</span></p>
+<p>A negative entropy is impossible for the exact distribution. Thus this run’s <strong>reported ELBO/entropy are unreliable</strong> at that point. It does <strong>not</strong>, by itself, prove that the MCMC gradient or fitted <span class="math inline">\(\Theta\)</span> is wrong; those have separate sampling-error and mixing questions.</p>
+</section>
+</section>
+<section id="where-these-steps-appear-in-the-script" class="level2" data-number="9">
+<h2 data-number="9" class="anchored" data-anchor-id="where-these-steps-appear-in-the-script"><span class="header-section-number">9</span> Where these steps appear in the script</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Concept</th>
+<th>Location in <code>VB_master_A.R</code></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Convert between a tree and <span class="math inline">\(A\)</span></td>
+<td><code>vb_A_from_tree()</code> and <code>vb_A_to_tree()</code>, lines 29–70</td>
+</tr>
+<tr class="even">
+<td>Initialize <span class="math inline">\(A_0\)</span>, <span class="math inline">\(\Theta\)</span>, and the chains</td>
+<td>lines 134–149</td>
+</tr>
+<tr class="odd">
+<td>Generate the uniform reference pool</td>
+<td>lines 151–156</td>
+</tr>
+<tr class="even">
+<td>Calculate sequence log likelihood</td>
+<td><code>likelihood()</code>, lines 159–171</td>
+</tr>
+<tr class="odd">
+<td>Draw MCMC trees and call the covariance-gradient helper</td>
+<td><code>draw_batch()</code>, lines 172–180</td>
+</tr>
+<tr class="even">
+<td>Estimate <span class="math inline">\(Z\)</span>, entropy, and printed ELBO</td>
+<td>lines 181–212</td>
+</tr>
+<tr class="odd">
+<td>Update <span class="math inline">\(\Theta\)</span></td>
+<td>lines 222–232</td>
+</tr>
+<tr class="even">
+<td>Save the fitted weights and sampled tree</td>
+<td>lines 245–274</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Core distinction:</strong> sampling and the gradient need relative tree weights and expectations under <span class="math inline">\(q_\Theta\)</span>; reporting an absolute probability, entropy, or numerical ELBO needs the normalizing constant <span class="math inline">\(Z(\Theta)\)</span>.</p>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

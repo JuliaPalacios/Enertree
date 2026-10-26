@@ -1,0 +1,364 @@
+---
+title: "How VB_master_A.R learns a distribution over trees"
+subtitle: "A step-by-step derivation of the sampler, gradient, and diagnostics"
+format:
+  html:
+    toc: true
+    number-sections: true
+    code-fold: false
+    html-math-method: mathjax
+execute:
+  eval: false
+---
+
+This note explains the inference in [`VB_master_A.R`](VB_master_A.R). It uses the same notation as the script and distinguishes **exact mathematical quantities** from their **Monte Carlo estimates**. The script fits a distribution over labeled, ranked tree topologies while holding the coalescent times fixed.
+
+## A tree, its matrix, and its score
+
+Let $n$ be the number of named taxa and let $\mathcal A_n$ be the set of valid binary A matrices. A valid $A\in\mathcal A_n$ specifies one **labeled, ranked tree topology**: columns identify taxa, and rows record the clade produced by each successive merger. The youngest merger is in the bottom row; the root is in the top row. For example,
+
+```text
+             a b c d
+root         1 1 1 1
+second merge 0 0 1 1   {c,d}
+first merge  1 1 0 0   {a,b}
+```
+
+The branch lengths come from a separate, fixed vector of coalescent times $\tau$. Thus $A$ determines a ranked topology, while $(A,\tau)$ determines the timed tree used to calculate a sequence likelihood. In this setting, $A$ also determines its unlabeled F matrix; several labeled A matrices can map to the same F matrix.
+
+The fitted parameter $\Theta$ has the same dimensions as $A$. It is a matrix of **weights**, not itself a binary tree. Define the score
+
+$$
+s_\Theta(A)=\langle\Theta,A\rangle
+=\sum_{i,j}\Theta_{ij}A_{ij}.
+$$
+
+A larger score means a larger *relative* weight. An individual $\Theta_{ij}$ is not an independent probability that $A_{ij}=1$, because the entries of a valid $A$ must fit together to form a tree.
+
+## The variational distribution and $Z$
+
+The exact variational distribution is
+
+$$
+q_\Theta(A)
+=\frac{\exp\{s_\Theta(A)\}}{Z(\Theta)},
+\qquad
+Z(\Theta)=\sum_{B\in\mathcal A_n}\exp\{s_\Theta(B)\}.
+$$
+
+$Z(\Theta)$ makes all tree probabilities sum to one. **It changes whenever $\Theta$ changes.** For $n=10$, the support contains
+
+$$
+|\mathcal A_{10}|
+=\prod_{k=2}^{10}\binom{k}{2}
+=\frac{10!\,9!}{2^9}
+=2{,}571{,}912{,}000
+$$
+
+labeled, ranked trees. Directly summing all their weights is therefore expensive. For $n=6$, the analogous count is $2{,}700$; direct enumeration is feasible.
+
+### Is there a fixed A-matrix center?
+
+The script builds an initial tree $A_0$ and sets $\Theta_0=\beta_{\mathrm{init}}(2A_0-1)$. It then **updates $\Theta$**, so $A_0$ is only an initialization. The fitted distribution can place mass on many A matrices and many topologies. The script does not estimate a separate $\beta$ after initialization.
+
+The connection to a squared-distance center $C$ follows because every entry of a valid $A$ is binary, so $A_{ij}^2=A_{ij}$:
+
+$$
+\begin{aligned}
+-\beta\|A-C\|_F^2
+&=-\beta\sum_{i,j}(A_{ij}-C_{ij})^2\\
+&=\sum_{i,j}\beta(2C_{ij}-1)A_{ij}
+  -\beta\|C\|_F^2.
+\end{aligned}
+$$
+
+The last term is the same for every $A$ and cancels in $q$. Hence $\Theta=\beta(2C-1)$ gives the same distribution. The reported `center_at_beta_1 = (Theta + 1)/2` sets $\beta=1$ as a way to display the fitted weights. This continuous $C$ need not be a valid binary A matrix.
+
+### Why the root and bottom weights are normalized
+
+Every valid $A$ has $n$ ones in its root row and exactly two ones in its bottom row. Setting all root-row weights to zero subtracts the same score from every tree. Subtracting a common value $c$ from every bottom-row weight subtracts $2c$ from every tree's score. Neither operation changes relative weights or $q_\Theta$. The code uses these freedoms to set the root row to zero and the **mean** bottom-row weight to zero.
+
+Middle rows cannot generally be centered this way: their numbers of ones depend on the tree. With four taxa, the second merger may create a two-taxon clade or a three-taxon clade. A common shift of that row's weights would change those trees' relative scores.
+
+## Why sampling does not require a numerical $Z$
+
+For two trees $A$ and $B$, the ratio of their probabilities is
+
+$$
+\frac{q_\Theta(B)}{q_\Theta(A)}
+=\frac{\exp\{s_\Theta(B)\}/Z(\Theta)}
+       {\exp\{s_\Theta(A)\}/Z(\Theta)}
+=\exp\{s_\Theta(B)-s_\Theta(A)\}.
+$$
+
+The normalizer cancels because the two trees are compared at the **same** $\Theta$. Metropolis--Hastings uses this ratio, plus a proposal-probability correction when the proposal is asymmetric. The sampler can therefore draw from $q_\Theta$ using relative weights. It does not need each tree's normalized probability in advance.
+
+This does **not** mean $Z$ is mathematically irrelevant. The distribution of the samples still depends on $\Theta$ and on its corresponding $Z$; the algorithm simply avoids calculating $Z$ explicitly.
+
+## Differentiate one tree probability, one parameter at a time
+
+Choose one entry $\theta=\Theta_{ij}$ and write $x(A)=A_{ij}$. Hold all other entries of $\Theta$ fixed. Let
+
+$$
+w(A)=\exp\{s_\Theta(A)\},
+\qquad Z=\sum_B w(B),
+\qquad q_\Theta(A)=\frac{w(A)}{Z}.
+$$
+
+First, $\partial s_\Theta(A)/\partial\theta=x(A)$. By the chain rule,
+
+$$
+\frac{\partial w(A)}{\partial\theta}=w(A)x(A).
+$$
+
+Next, differentiate the sum defining $Z$:
+
+$$
+\begin{aligned}
+\frac{\partial Z}{\partial\theta}
+&=\sum_B w(B)x(B)\\
+&=Z\sum_B q_\Theta(B)x(B)\\
+&=Z\,\mathbb E_q[x].
+\end{aligned}
+$$
+
+Define $\mu=\mathbb E_q[x]$. The quotient rule now gives
+
+$$
+\begin{aligned}
+\frac{\partial q_\Theta(A)}{\partial\theta}
+&=\frac{w'(A)Z-w(A)Z'}{Z^2}\\
+&=\frac{w(A)x(A)Z-w(A)Z\mu}{Z^2}\\
+&=q_\Theta(A)\bigl(x(A)-\mu\bigr).
+\end{aligned}
+$$
+
+The $x(A)$ term reflects the change in **this tree's** weight. The $-\mu$ term reflects the change in the **total** weight. It ensures the derivatives of all tree probabilities add to zero.
+
+We can also divide the preceding expression by $q_\Theta(A)$:
+
+$$
+\frac{\partial\log q_\Theta(A)}{\partial\theta}
+=x(A)-\mathbb E_q[x],
+\qquad
+\frac{\partial\log Z}{\partial\theta}=\mathbb E_q[x].
+$$
+
+The derivative of $\log Z$ is an expectation. We can estimate that expectation from samples **without calculating the value of $\log Z$**.
+
+## Why a covariance appears
+
+Suppose $f(A)$ is a fixed value associated with each tree. Its expectation is a probability-weighted average:
+
+$$
+\mathbb E_q[f]=\sum_A q_\Theta(A)f(A).
+$$
+
+Only the probabilities change when $\theta$ changes. Using the derivative just derived,
+
+$$
+\begin{aligned}
+\frac{\partial\mathbb E_q[f]}{\partial\theta}
+&=\sum_A f(A)q_\Theta(A)\bigl(x(A)-\mu\bigr)\\
+&=\mathbb E_q[fx]-\mathbb E_q[f]\mathbb E_q[x]\\
+&=\operatorname{Cov}_q(x,f).
+\end{aligned}
+$$
+
+The covariance measures whether trees with $x(A)=1$ tend to have above- or below-average $f(A)$. It appears because changing $\theta$ moves probability mass toward trees with that feature and away from trees without it.
+
+## Derive the ELBO gradient
+
+Let $Y$ denote the sequences and let $\tau$ denote the fixed coalescent times. Define the sequence log likelihood
+
+$$
+\ell(A)=\log p(Y\mid A,\tau).
+$$
+
+The script uses a uniform prior over $\mathcal A_n$, so $\log p(A)=-\log|\mathcal A_n|$. The exact ELBO is
+
+$$
+\begin{aligned}
+\mathcal L(\Theta)
+&=\mathbb E_q[\ell(A)+\log p(A)-\log q_\Theta(A)]\\
+&=\mathbb E_q[\ell(A)]-\log|\mathcal A_n|
+  +\log Z(\Theta)-\mathbb E_q[s_\Theta(A)].
+\end{aligned}
+$$
+
+Differentiate with respect to $\theta=\Theta_{ij}$, again using $x(A)=A_{ij}$:
+
+1. The likelihood does not explicitly depend on $\theta$, so
+   $\partial\mathbb E_q[\ell]/\partial\theta
+     =\operatorname{Cov}_q(x,\ell)$.
+2. The prior term is constant, so its derivative is zero.
+3. $\partial\log Z/\partial\theta=\mathbb E_q[x]$.
+4. The term $\mathbb E_q[s_\Theta(A)]$ depends on $\theta$ in **two places**: changing $\theta$ changes the probability $q_\Theta(A)$ of each tree, and it changes that tree's score $s_\Theta(A)$. Start by writing the expectation as a sum, then apply the product rule to its two factors:
+
+   $$
+   \begin{aligned}
+   \frac{\partial}{\partial\theta}\mathbb E_q[s_\Theta(A)]
+   &=\frac{\partial}{\partial\theta}
+     \sum_A q_\Theta(A)s_\Theta(A)\\
+   &=\sum_A \frac{\partial q_\Theta(A)}{\partial\theta}s_\Theta(A)
+     +\sum_A q_\Theta(A)\frac{\partial s_\Theta(A)}{\partial\theta}\\
+   &=\sum_A q_\Theta(A)\bigl(x(A)-\mu\bigr)s_\Theta(A)
+     +\sum_A q_\Theta(A)x(A)\\
+   &=\bigl\{\mathbb E_q[xs_\Theta]-\mathbb E_q[x]\mathbb E_q[s_\Theta]\bigr\}
+     +\mathbb E_q[x]\\
+   &=\operatorname{Cov}_q(x,s_\Theta)+\mathbb E_q[x],
+   \end{aligned}
+   $$
+
+   where $\mu=\mathbb E_q[x]$. The **first sum** is the effect of moving probability between trees, so it becomes a covariance. The **second sum** is the direct effect of changing each tree's score, because $\partial s_\Theta(A)/\partial\theta=x(A)$. Both effects are needed when differentiating an expectation whose integrand also depends on $\theta$.
+
+Therefore,
+
+$$
+\begin{aligned}
+\frac{\partial\mathcal L}{\partial\theta}
+&=\operatorname{Cov}_q(x,\ell)
+  +\mathbb E_q[x]
+  -\bigl\{\mathbb E_q[x]+\operatorname{Cov}_q(x,s_\Theta)\bigr\}\\
+&=\operatorname{Cov}_q\bigl(x,\ell-s_\Theta\bigr).
+\end{aligned}
+$$
+
+The $\mathbb E_q[x]$ terms cancel. **$Z$ was differentiated; its contribution canceled another contribution.** Writing the result for every entry at once,
+
+$$
+\boxed{\displaystyle
+\nabla_\Theta\mathcal L
+=\operatorname{Cov}_{q_\Theta}
+  \left(A,\log p(Y\mid A,\tau)-\langle\Theta,A\rangle\right).}
+$$
+
+The $-s_\Theta(A)$ term comes from entropy. If the gradient contained only sequence likelihood, it would omit that part of the variational objective.
+
+## What the script estimates by Monte Carlo
+
+The covariance above is an **exact mathematical expectation** under $q_\Theta$. The script approximates it with MCMC draws. For one coordinate, write
+
+$$
+x_k=A_{ij}^{(k)},
+\qquad
+r_k=\ell(A^{(k)})-s_\Theta(A^{(k)}).
+$$
+
+The Monte Carlo calculation is conceptually
+
+$$
+\widehat{\operatorname{Cov}}(x,r)
+=\frac{1}{m}\sum_{k=1}^m(x_k-\bar x)(r_k-\bar r),
+$$
+
+with a finite-sample convention chosen by the package helper. Likewise,
+
+$$
+\mathbb E_q[A_{ij}]\ \approx\ \bar x
+=\frac{1}{m}\sum_{k=1}^m A_{ij}^{(k)}.
+$$
+
+### Why run two chains?
+
+There is **one** fitted $\Theta$, shared by both chains. By default, chain 1 starts at the UPGMA-derived $A_0$, while chain 2 starts at a uniformly drawn tree. Each chain retains `num_samps = 200` trees per iteration. The chains are run by `lapply()`, so “two chains” does not mean two parallel R processes or two separately fitted models.
+
+For each chain $c$, the script requests a covariance-gradient estimate $\widehat g_c$ from `phylodyn:::a_vi_covariance_gradient()`. It updates the one $\Theta$ using their average,
+
+$$
+\widehat g=\frac{\widehat g_1+\widehat g_2}{2}.
+$$
+
+It also pools the two sets of trees for the displayed mean A matrix, mean log likelihood, entropy estimate, and final sampled-tree summary. After an iteration, each chain's last tree becomes that chain's starting tree for the next iteration. Running from different starts helps reveal whether the sampler is stuck in different regions: the code compares the chains' mean A-matrix entries. It also provides more draws for the gradient. Two chains do **not** guarantee that either chain has explored the target distribution well.
+
+Because draws within a chain are correlated, 200 retained trees do not necessarily contain as much information as 200 independent trees.
+
+The parameter update is an AdaGrad-style step: it scales each coordinate's gradient by the accumulated squared gradients for that coordinate. No estimate of $Z$ enters that update.
+
+## Why the printed ELBO needs a separate $Z$ estimate
+
+The gradient avoids the *value* of $Z$, but entropy and the numerical ELBO still contain $\log Z$. The script takes $R$ uniform reference draws $U_1,\ldots,U_R$ from $\mathcal A_n$ and uses
+
+$$
+\widehat Z_{\mathrm{ref}}(\Theta)
+=\frac{|\mathcal A_n|}{R}\sum_{r=1}^R e^{s_\Theta(U_r)},
+\qquad
+\widehat{\log Z}_{\mathrm{ref}}=\log\widehat Z_{\mathrm{ref}}.
+$$
+
+The implementation evaluates this expression with a maximum-score offset to avoid numerical overflow. It then reports
+
+$$
+\widehat H
+=\widehat{\log Z}_{\mathrm{ref}}
+ -\frac{1}{m}\sum_{k=1}^m s_\Theta(A^{(k)}),
+\qquad
+\widehat{\mathcal L}
+=\overline\ell-\log|\mathcal A_n|+\widehat H.
+$$
+
+These are **diagnostics**, not inputs to the gradient update. In contrast, the exact entropy is always nonnegative because
+
+$$
+H(q)=-\sum_A q(A)\log q(A)\ge 0.
+$$
+
+### `reference ESS`: concentration of the uniform-reference weights
+
+For each of the $R=10{,}000$ uniform reference trees by default, the code evaluates $s_r=s_\Theta(U_r)$. It converts these to normalized weights
+
+$$
+\widetilde w_r
+=\frac{e^{s_r}}{\sum_{t=1}^R e^{s_t}},
+\qquad
+\mathrm{ESS}_{\mathrm{ref}}
+=\frac{1}{\sum_{r=1}^R\widetilde w_r^2}.
+$$
+
+The implementation subtracts $\max_r s_r$ inside the exponentials for numerical stability; this does not change $\widetilde w_r$. If all $R$ weights are equal, $\widetilde w_r=1/R$ and reference ESS is $R$. If one weight dominates, reference ESS approaches 1. This number measures **importance-weight concentration**, not autocorrelation in an MCMC chain. A value of 1.5 out of 10,000 says that the uniform reference pool has very poor coverage of the trees important to the current $q_\Theta$.
+
+### `min ESS`: autocorrelation of the MCMC likelihood traces
+
+For each chain $c$, the script forms the $m=200$ retained log likelihoods $\ell_{c,1},\ldots,\ell_{c,m}$ and calls `coda::effectiveSize()` on **that chain's likelihood vector**. In the installed `coda` version, the estimate has the form
+
+$$
+\widehat{\mathrm{ESS}}_c
+=m\,\frac{\widehat{\operatorname{Var}}(\ell_c)}
+           {\widehat S_c(0)},
+$$
+
+where $\widehat S_c(0)$ is an autoregressive estimate of the likelihood trace's spectral density at frequency zero. Informally, it estimates how many *independent* likelihood observations would give comparable precision for the chain's mean likelihood. Positive serial correlation usually makes this smaller than $m$; negative correlation can make an ESS estimate exceed $m$. See the [coda package documentation](https://cran.r-project.org/web/packages/coda/coda.pdf) for the method.
+
+The printed **`min ESS` is $\min_c\widehat{\mathrm{ESS}}_c$**, the smaller of the two separate estimates, **not** an ESS computed from all 400 pooled trees. If a chain's likelihoods are all identical, the script assigns it ESS 0. If `coda` is unavailable, this diagnostic becomes `NA`.
+
+This ESS applies **only to the log-likelihood statistic**. It can look reasonable even if a chain misses important tree topologies. It is also calculated separately at each iteration, when $\Theta$ has a different value.
+
+### The other printed chain diagnostics
+
+- **`chain difference`**: for each A-matrix entry, compare its sample mean between chains; print the largest absolute difference. Smaller is reassuring, but both chains can still miss the same region.
+- **`accept`**: average across chains of the fraction of proposed MCMC tree moves accepted. It is not an ESS.
+
+In the example $n=10$ run discussed with this note, iteration 300 printed an estimated ELBO of $-4101.537$, a mean log likelihood of $-4073.165$, and reference ESS of $1.5$ out of 10,000. Since $\log|\mathcal A_{10}|\approx21.668$, these values imply
+
+$$
+\widehat H
+=-4101.537-(-4073.165)+21.668
+\approx-6.704.
+$$
+
+A negative entropy is impossible for the exact distribution. Thus this run's **reported ELBO/entropy are unreliable** at that point. It does **not**, by itself, prove that the MCMC gradient or fitted $\Theta$ is wrong; those have separate sampling-error and mixing questions.
+
+## Where these steps appear in the script
+
+| Concept | Location in `VB_master_A.R` |
+|---|---|
+| Convert between a tree and $A$ | `vb_A_from_tree()` and `vb_A_to_tree()`, lines 29–70 |
+| Initialize $A_0$, $\Theta$, and the chains | lines 134–149 |
+| Generate the uniform reference pool | lines 151–156 |
+| Calculate sequence log likelihood | `likelihood()`, lines 159–171 |
+| Draw MCMC trees and call the covariance-gradient helper | `draw_batch()`, lines 172–180 |
+| Estimate $Z$, entropy, and printed ELBO | lines 181–212 |
+| Update $\Theta$ | lines 222–232 |
+| Save the fitted weights and sampled tree | lines 245–274 |
+
+**Core distinction:** sampling and the gradient need relative tree weights and expectations under $q_\Theta$; reporting an absolute probability, entropy, or numerical ELBO needs the normalizing constant $Z(\Theta)$.

@@ -298,3 +298,4 @@ if (sys.nframe() == 0L) {
   output_dir <- if (length(args)) args[1L] else file.path(script_dir, "logs", "VB_master_A", format(Sys.time(), "%Y%m%d_%H%M%S"))
   fit <- run_VB_master_A(output_dir = output_dir)
 }
+
